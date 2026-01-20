@@ -30,7 +30,7 @@ type AlertRule = {
   email?: string;
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+import { API_BASE } from "../lib/api-config";
 
 const STEPS = [
   { id: 0, title: "Welcome", icon: Check },

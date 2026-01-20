@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Terminal } from "lucide-react";
 import { ContainerInfo } from "../lib/types";
 
-const WS_URL = process.env.NEXT_PUBLIC_STACKVIEW_WS ?? "ws://localhost:8080";
+import { WS_EXEC_URL as WS_URL } from "../lib/api-config";
 
 interface WebTerminalProps {
   containers: ContainerInfo[];
@@ -24,7 +24,7 @@ export function WebTerminal({ containers }: WebTerminalProps) {
   useEffect(() => {
     if (!selectedContainer) return;
 
-    const socket = new WebSocket(`${WS_URL}/ws/exec`);
+    const socket = new WebSocket(WS_URL);
     socketRef.current = socket;
 
     socket.onopen = () => {

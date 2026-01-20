@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Pause, Play, Filter } from "lucide-react";
 import { ContainerInfo, LogEntry } from "../lib/types";
 
-const WS_URL = process.env.NEXT_PUBLIC_STACKVIEW_WS ?? "ws://localhost:8080";
+import { WS_LOGS_URL as WS_URL } from "../lib/api-config";
 
 interface StackLogsProps {
   stackName: string;
@@ -20,7 +20,7 @@ export function StackLogs({ stackName, services, containers }: StackLogsProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const socket = new WebSocket(`${WS_URL}/ws/logs`);
+    const socket = new WebSocket(WS_URL);
 
     socket.onopen = () => {
       socket.send(

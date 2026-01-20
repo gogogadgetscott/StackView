@@ -21,7 +21,7 @@ import { WebTerminal } from "../../../components/web-terminal";
 import { ComposeEditor } from "../../../components/compose-editor";
 import { StackDiffView } from "../../../components/stack-diff";
 
-const API_URL = process.env.NEXT_PUBLIC_STACKVIEW_API ?? "http://localhost:8080";
+import { API_BASE as API_URL } from "../../../lib/api-config";
 
 type Tab = "logs" | "terminal" | "compose" | "diff";
 

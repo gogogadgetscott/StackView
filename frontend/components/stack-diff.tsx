@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { RefreshCw, AlertCircle, CheckCircle, AlertTriangle, Play } from "lucide-react";
 import { StackDiff, ContainerInfo } from "../lib/types";
 
-const API_URL = process.env.NEXT_PUBLIC_STACKVIEW_API ?? "http://localhost:8080";
+import { API_BASE as API_URL } from "../lib/api-config";
 
 interface StackDiffViewProps {
   stackName: string;

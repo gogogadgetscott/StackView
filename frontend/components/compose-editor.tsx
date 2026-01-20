@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Save, RefreshCw, AlertCircle, CheckCircle } from "lucide-react";
 import { ComposeContent } from "../lib/types";
 
-const API_URL = process.env.NEXT_PUBLIC_STACKVIEW_API ?? "http://localhost:8080";
+import { API_BASE as API_URL } from "../lib/api-config";
 
 interface ComposeEditorProps {
   stackName: string;

@@ -25,8 +25,7 @@ import { ContainerRow, StatPoint } from "../lib/types";
 import { ContainerExpandedRow } from "./container-expanded-row";
 import { TagInput, TagBadge } from "./tag-input";
 
-const API_BASE = process.env.NEXT_PUBLIC_STACKVIEW_API ?? "http://localhost:8080";
-const WS_URL = process.env.NEXT_PUBLIC_STACKVIEW_WS ?? "ws://localhost:8080/ws/stats";
+import { API_BASE, WS_STATS_URL as WS_URL } from "../lib/api-config";
 
 function useStatsStream(containerIds: string[]) {
   const [rows, setRows] = useState<ContainerRow[]>([]);
@@ -182,9 +181,11 @@ export function ContainerTable() {
         accessorKey: "name",
         header: "Name",
         cell: ({ row }) => (
-          <div className="font-medium text-neutral-100">
-            <div>{row.original.name}</div>
-            <div className="text-xs text-neutral-500">{row.original.id.slice(0, 12)}</div>
+          <div 
+            className="font-medium text-neutral-100 cursor-default" 
+            title={`Container ID: ${row.original.id}`}
+          >
+            {row.original.name}
           </div>
         ),
       },

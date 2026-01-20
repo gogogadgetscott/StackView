@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Terminal,
   FileText,
@@ -10,6 +10,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { ContainerDetail } from "../lib/types";
+import { API_BASE, WS_LOGS_URL } from "../lib/api-config";
 
 type Tab = "logs" | "env" | "mounts" | "inspect";
 
@@ -29,7 +30,7 @@ export function ContainerExpandedRow({
     if (detail) return;
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:8080/api/containers/${containerId}`);
+      const res = await fetch(`${API_BASE}/api/containers/${containerId}`);
       if (res.ok) {
         setDetail(await res.json());
       }
@@ -97,7 +98,7 @@ export function ContainerExpandedRow({
       {activeTab === "logs" && (
         <div className="rounded border border-neutral-800 bg-neutral-900 p-4 max-h-64 overflow-auto font-mono text-xs text-neutral-300">
           <p className="text-neutral-500">
-            Connect to WebSocket at <code>ws://localhost:8080/ws/logs</code> for live logs.
+            Connect to WebSocket at <code>{WS_LOGS_URL}</code> for live logs.
           </p>
           {logs.length === 0 ? (
             <p className="text-neutral-500 mt-2">No logs available yet.</p>

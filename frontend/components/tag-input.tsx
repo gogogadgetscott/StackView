@@ -22,19 +22,25 @@ function getTagColor(tag: string): string {
 export function TagBadge({
   tag,
   onRemove,
+  interactive = true,
 }: {
   tag: string;
   onRemove?: () => void;
+  interactive?: boolean;
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${getTagColor(tag)}`}
+      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${getTagColor(tag)} ${
+        interactive ? "cursor-pointer hover:scale-105 hover:shadow-md" : ""
+      }`}
+      title={`Filter by: ${tag}`}
     >
       {tag}
       {onRemove && (
         <button
           onClick={onRemove}
-          className="hover:text-white transition-colors"
+          className="hover:text-white transition-colors ml-0.5"
+          title="Remove tag"
         >
           <X className="h-3 w-3" />
         </button>
@@ -136,9 +142,11 @@ export function TagInput({
       ) : (
         <button
           onClick={() => setIsEditing(true)}
-          className="inline-flex items-center gap-1 rounded border border-dashed border-neutral-700 px-2 py-0.5 text-xs text-neutral-500 hover:border-cyan-500 hover:text-cyan-400 transition-colors"
+          className="inline-flex items-center gap-1 rounded-full border border-dashed border-neutral-700 bg-neutral-900/50 px-2.5 py-1 text-xs text-neutral-400 hover:border-cyan-500 hover:bg-cyan-500/10 hover:text-cyan-400 transition-all"
+          title="Add tag"
         >
           <Plus className="h-3 w-3" />
+          <span>Add</span>
         </button>
       )}
     </div>

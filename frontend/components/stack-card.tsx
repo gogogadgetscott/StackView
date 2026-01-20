@@ -99,98 +99,143 @@ export function StackCard({
 
   return (
     <div className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900/60 shadow-sm transition-all hover:bg-neutral-900 hover:border-neutral-700">
-      {/* Compact Stack Row */}
+      {/* Mobile Card View */}
       <button
         onClick={onToggle}
-        className="grid w-full grid-cols-[auto_1fr_auto_auto_auto_auto_auto] items-center gap-3 px-3 py-2.5 text-sm"
+        className="flex flex-col w-full p-4 text-left sm:hidden"
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center shrink-0">
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4 text-neutral-400" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-neutral-400" />
+              )}
+            </div>
+            <span className="font-bold text-neutral-100 text-base">{stack.name}</span>
+          </div>
+          {getStatusBadge({ stack })}
+        </div>
+        <div className="text-xs text-neutral-400 font-medium tracking-tight">
+          Services: <span className="text-emerald-400">{stack.runningCount}</span> / {total}
+          <span className="mx-1.5 text-neutral-700">·</span>
+          CPU {totalCpu.toFixed(1)}%
+          <span className="mx-1.5 text-neutral-700">·</span>
+          Mem {totalMem.toFixed(1)}%
+          <span className="mx-1.5 text-neutral-700">·</span>
+          Issues: {stack.unhealthyCount > 0 ? (
+            <span className="text-red-400">{stack.unhealthyCount}</span>
+          ) : (
+            <span className="text-neutral-500">None</span>
+          )}
+        </div>
+      </button>
+
+      {/* Desktop Table Row */}
+      <button
+        onClick={onToggle}
+        className="hidden sm:grid w-full grid-cols-[32px_1.5fr_80px_110px_70px_70px_70px] items-center gap-3 px-3 py-2.5 text-sm"
       >
         {/* Expand Icon */}
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center shrink-0">
           {isExpanded ? (
-            <ChevronDown className="h-3.5 w-3.5 text-neutral-400" />
+            <ChevronDown className="h-4 w-4 text-neutral-400" />
           ) : (
-            <ChevronRight className="h-3.5 w-3.5 text-neutral-400" />
+            <ChevronRight className="h-4 w-4 text-neutral-400" />
           )}
         </div>
 
         {/* Name */}
-        <div className="flex items-center gap-2 text-left">
-          <span className="font-medium text-neutral-100 truncate">{stack.name}</span>
+        <div className="text-left">
+          <span className="font-semibold text-neutral-100 truncate">{stack.name}</span>
         </div>
 
         {/* Services (running/total) */}
-        <div className="text-right text-neutral-300 tabular-nums min-w-[60px]">
+        <div className="text-right text-neutral-300 tabular-nums">
           <span className="text-emerald-400">{stack.runningCount}</span>
-          <span className="text-neutral-500">/</span>
+          <span className="text-neutral-500 mx-0.5">/</span>
           <span>{total}</span>
         </div>
 
         {/* Status */}
-        <div className="flex items-center gap-1.5 min-w-[90px]">
+        <div className="flex justify-center">
           {getStatusBadge({ stack })}
         </div>
 
         {/* CPU */}
-        <div className="text-right text-cyan-400 tabular-nums min-w-[60px]">
+        <div className="text-right text-cyan-400 tabular-nums">
           {totalCpu.toFixed(1)}%
         </div>
 
         {/* Mem */}
-        <div className="text-right text-purple-400 tabular-nums min-w-[60px]">
+        <div className="text-right text-purple-400 tabular-nums">
           {totalMem.toFixed(1)}%
         </div>
 
         {/* Issues */}
-        <div className="flex items-center justify-center min-w-[50px]">
-          {stack.unhealthyCount > 0 && (
-            <div className="flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-0.5 text-xs text-red-400">
+        <div className="flex items-center justify-center">
+          {stack.unhealthyCount > 0 ? (
+            <div className="flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] font-bold text-red-400">
               <AlertCircle className="h-3 w-3" />
               <span>{stack.unhealthyCount}</span>
             </div>
+          ) : (
+            <span className="text-neutral-600 text-[10px] uppercase font-bold tracking-tighter">None</span>
           )}
         </div>
       </button>
 
       {/* Expanded Container List */}
       {isExpanded && containers.length > 0 && (
-        <div className="border-t border-neutral-800 bg-neutral-950/50">
-          <table className="min-w-full">
-            <tbody className="divide-y divide-neutral-800/50">
-              {containers.map((container) => (
-                <tr key={container.id} className="hover:bg-neutral-800/20">
-                  <td className="px-6 py-2 pl-12">
-                    <span
-                      className={`mr-2 inline-block h-2 w-2 rounded-full ${
-                        container.status === "running"
-                          ? "bg-emerald-400 animate-pulse"
-                          : "bg-neutral-500"
-                      }`}
-                    />
-                    <span className="text-sm text-neutral-200">
-                      {container.name}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-sm text-neutral-400">
-                    {container.id.slice(0, 12)}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-cyan-300">
-                    CPU {container.cpu.toFixed(1)}%
-                  </td>
-                  <td className="px-4 py-2 text-sm text-purple-300">
-                    Mem {container.mem.toFixed(1)}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="border-t border-neutral-800 bg-neutral-950/40">
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <tbody className="divide-y divide-neutral-800/50">
+                {containers.map((container) => (
+                  <tr key={container.id} className="hover:bg-neutral-800/20">
+                    <td className="px-4 py-2 sm:pl-12">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 w-full">
+                        <div className="flex items-center flex-1 min-w-0">
+                          <span
+                            className={`mr-2.5 shrink-0 inline-block h-2 w-2 rounded-full ${
+                              container.status === "running"
+                                ? "bg-emerald-400 animate-pulse"
+                                : "bg-neutral-600 shadow-inner"
+                            }`}
+                          />
+                          <span className="text-sm text-neutral-200 truncate font-mono">
+                            {container.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 mt-1 sm:mt-0 pl-4 sm:pl-0">
+                          <span className="text-[10px] uppercase font-bold text-neutral-600 tracking-widest tabular-nums">
+                            {container.id.slice(0, 8)}
+                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-bold text-cyan-400 tabular-nums bg-cyan-400/10 px-1.5 py-0.5 rounded">
+                              {container.cpu.toFixed(1)}%
+                            </span>
+                            <span className="text-[10px] font-bold text-purple-400 tabular-nums bg-purple-400/10 px-1.5 py-0.5 rounded">
+                              {container.mem.toFixed(1)}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       {isExpanded && containers.length === 0 && (
-        <div className="border-t border-neutral-800 bg-neutral-950/50 px-6 py-3 flex items-center justify-center">
-          <div className="flex items-center gap-2 rounded-full bg-neutral-700/30 border border-neutral-600/30 px-3 py-1.5 text-xs font-medium text-neutral-400">
-            <div className="h-2 w-2 rounded-full bg-neutral-500" />
-            <span>Empty</span>
+        <div className="border-t border-neutral-800 bg-neutral-950/50 px-6 py-4 flex items-center justify-center">
+          <div className="flex items-center gap-2 rounded-full bg-neutral-800 border border-neutral-700 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+            <div className="h-1.5 w-1.5 rounded-full bg-neutral-600" />
+            <span>Empty Stack</span>
           </div>
         </div>
       )}
@@ -259,27 +304,33 @@ export function StackList() {
 
   return (
     <div className="space-y-2">
-      {/* Column Headers */}
-      <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto_auto] items-center gap-3 px-3 py-2 text-xs font-medium text-neutral-500 uppercase tracking-wider border-b border-neutral-800">
-        <div className="w-3.5"></div> {/* Expand icon space */}
-        <div>Name</div>
-        <div className="text-right min-w-[60px]">Services</div>
-        <div className="min-w-[90px]">Status</div>
-        <div className="text-right min-w-[60px]">CPU</div>
-        <div className="text-right min-w-[60px]">Mem</div>
-        <div className="text-center min-w-[50px]">Issues</div>
-      </div>
+      <div className="overflow-x-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-neutral-800">
+        <div className="min-w-[600px] sm:min-w-0">
+          {/* Column Headers */}
+          <div className="hidden sm:grid grid-cols-[32px_1.5fr_80px_110px_70px_70px_70px] items-center gap-3 px-3 py-2 text-[10px] font-bold text-neutral-500 uppercase tracking-widest border-b border-neutral-800/50 mb-2">
+            <div className="w-4"></div> {/* Expand icon space */}
+            <div>Name</div>
+            <div className="text-right">Services</div>
+            <div className="text-center">Status</div>
+            <div className="text-right">CPU</div>
+            <div className="text-right">Mem</div>
+            <div className="text-center">Issues</div>
+          </div>
 
-      {/* Stack Cards */}
-      {stacks.map((stack) => (
-        <StackCard
-          key={stack.name}
-          stack={stack}
-          containers={containersByStack[stack.name] || []}
-          isExpanded={expandedStacks.has(stack.name)}
-          onToggle={() => toggleStack(stack.name)}
-        />
-      ))}
+          {/* Stack Cards */}
+          <div className="space-y-2">
+            {stacks.map((stack) => (
+              <StackCard
+                key={stack.name}
+                stack={stack}
+                containers={containersByStack[stack.name] || []}
+                isExpanded={expandedStacks.has(stack.name)}
+                onToggle={() => toggleStack(stack.name)}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

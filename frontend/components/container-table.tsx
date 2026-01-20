@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
+  getExpandedRowModel,
   SortingState,
   useReactTable,
 } from "@tanstack/react-table";
@@ -17,9 +19,11 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
-import { Play, Square, RefreshCw, StickyNote } from "lucide-react";
+import { Play, Square, RefreshCw, StickyNote, ChevronRight, ChevronDown } from "lucide-react";
 
 import { ContainerRow, StatPoint } from "../lib/types";
+import { ContainerExpandedRow } from "./container-expanded-row";
+import { TagInput, TagBadge } from "./tag-input";
 
 const WS_URL = process.env.NEXT_PUBLIC_STACKVIEW_WS ?? "ws://localhost:8080/ws/stats";
 
@@ -48,7 +52,7 @@ function useStatsStream(containerIds: string[]) {
         const base: ContainerRow = existing ?? {
           id: data.containerId,
           name: data.name?.replace("/", "") ?? data.containerId.slice(0, 12),
-          stack: "unassigned",
+          stack: data.stackName || "unassigned",
           status: "running",
           ports: [],
           note: "",
@@ -58,7 +62,7 @@ function useStatsStream(containerIds: string[]) {
         };
         return [
           ...prev.filter((r) => r.id !== data.containerId),
-          { ...base, cpu: data.cpuPercent, mem: data.memPercent, spark: trimmed },
+          { ...base, cpu: data.cpuPercent, mem: data.memPercent, spark: trimmed, stack: data.stackName || base.stack },
         ];
       });
     };
@@ -73,8 +77,8 @@ function useStatsStream(containerIds: string[]) {
 function Sparkline({ points }: { points: StatPoint[] }) {
   if (!points.length) return <div className="h-10" />;
   return (
-    <div className="h-10 w-32">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="h-10 w-32" style={{ minWidth: 128, minHeight: 40 }}>
+      <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
         <LineChart data={points} margin={{ top: 2, bottom: 2, right: 0, left: 0 }}>
           <CartesianGrid stroke="#1f2937" strokeWidth={0.5} vertical={false} />
           <YAxis hide domain={[0, 100]} />
@@ -122,9 +126,12 @@ export function ContainerTable() {
         accessorKey: "stack",
         header: "Stack",
         cell: ({ row }) => (
-          <button className="rounded border border-neutral-800 bg-neutral-900 px-2 py-1 text-xs text-cyan-200 hover:border-cyan-500">
+          <Link
+            href={`/stacks/${encodeURIComponent(row.original.stack)}`}
+            className="rounded border border-neutral-800 bg-neutral-900 px-2 py-1 text-xs text-cyan-200 hover:border-cyan-500 hover:bg-neutral-800 transition-colors"
+          >
             {row.original.stack}
-          </button>
+          </Link>
         ),
       },
       {

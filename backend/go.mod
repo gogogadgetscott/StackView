@@ -7,6 +7,7 @@ toolchain go1.24.12
 require (
 	github.com/docker/docker v25.0.2+incompatible
 	github.com/gorilla/websocket v1.5.1
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

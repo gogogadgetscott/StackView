@@ -9,12 +9,14 @@ pnpm-lock.yaml
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+package-lock.json
 
 # Go
 /backend/bin/
 /backend/.cache/
 /backend/go.sum
 /backend/.data/
+*.test
 
 # Editor/OS
 .DS_Store
@@ -24,6 +26,7 @@ yarn-error.log*
 *.log
 .vscode/
 .idea/
+*.iml
 
 # Docker
 **/.env
@@ -33,8 +36,21 @@ yarn-error.log*
 /dist/
 /out/
 coverage/
+*.prof
 
 # SQLite
 *.db
 *.db-shm
 *.db-wal
+
+# IDE-specific
+.code-workspace
+.editorconfig
+
+# OS-specific
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# Pre-commit
+.pre-commit-config.yaml.bak

@@ -1,19 +1,21 @@
 services:
   backend-dev:
-    image: golang:1.21
+    image: golang:1.24
     working_dir: /workspace/backend
     command: ["go", "run", "./cmd/server"]
     environment:
       - STACKVIEW_SQLITE_PATH=/workspace/backend/.data/stackview.db
       - DOCKER_HOST=unix:///var/run/docker.sock
+      - STACKVIEW_STACK_ROOTS=/stacks
     volumes:
       - ./backend:/workspace/backend
       - /var/run/docker.sock:/var/run/docker.sock
+      - /home/user:/stacks:ro
     ports:
       - "8080:8080"
 
   backend-test:
-    image: golang:1.21
+    image: golang:1.24
     working_dir: /workspace/backend
     command: ["go", "test", "./..."]
     environment:
@@ -39,7 +41,7 @@ services:
         fi
         npm run dev -- --hostname 0.0.0.0
     environment:
-      - NEXT_PUBLIC_STACKVIEW_WS=ws://backend-dev:8080/ws/stats
+      - NEXT_PUBLIC_STACKVIEW_WS=ws://localhost:8080/ws/stats
       - NEXT_TELEMETRY_DISABLED=1
     volumes:
       - ./frontend:/workspace/frontend

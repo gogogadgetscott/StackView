@@ -11,6 +11,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+	"github.com/gogogadgetscott/stackview/internal/stacks"
 	"github.com/gorilla/websocket"
 )
 
@@ -22,17 +23,24 @@ type subscription struct {
 type statsPayload struct {
 	ContainerID string  `json:"containerId"`
 	Name        string  `json:"name"`
+	StackName   string  `json:"stackName"`
 	CPUPercent  float64 `json:"cpuPercent"`
 	MemPercent  float64 `json:"memPercent"`
 	Timestamp   int64   `json:"ts"`
 }
 
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true }, // tighten with allowed origins when wiring frontend
+	CheckOrigin: func(r *http.Request) bool {
+		// TODO: In production, restrict to allowed origins only
+		// Example: return r.Header.Get("Origin") == "https://example.com"
+		return true
+	},
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
 }
 
 // StatsWebSocketHandler streams stats for requested containers at ~1s cadence.
-func StatsWebSocketHandler(dockerClient *client.Client) http.Handler {
+func StatsWebSocketHandler(dockerClient *client.Client, stackManager *stacks.Manager) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithCancel(r.Context())
 		defer cancel()
@@ -58,17 +66,33 @@ func StatsWebSocketHandler(dockerClient *client.Client) http.Handler {
 			interval = time.Second
 		}
 
-		containerIDs := sub.ContainerIDs
-		if len(containerIDs) == 0 {
+		// Build list of containers with their stack names
+		type containerInfo struct {
+			ID        string
+			StackName string
+		}
+		var containers []containerInfo
+
+		if len(sub.ContainerIDs) == 0 {
 			list, err := dockerClient.ContainerList(ctx, types.ContainerListOptions{All: true})
 			if err != nil {
 				log.Printf("list containers error: %v", err)
 				_ = conn.WriteJSON(map[string]string{"error": "list containers failed"})
 				return
 			}
-			containerIDs = make([]string, 0, len(list))
 			for _, c := range list {
-				containerIDs = append(containerIDs, c.ID)
+				containers = append(containers, containerInfo{
+					ID:        c.ID,
+					StackName: c.Labels["com.docker.compose.project"],
+				})
+			}
+		} else {
+			for _, id := range sub.ContainerIDs {
+				stackName := stackManager.GetContainerStackName(ctx, id)
+				containers = append(containers, containerInfo{
+					ID:        id,
+					StackName: stackName,
+				})
 			}
 		}
 
@@ -79,11 +103,11 @@ func StatsWebSocketHandler(dockerClient *client.Client) http.Handler {
 			return conn.WriteJSON(v)
 		}
 
-		errCh := make(chan error, len(containerIDs))
-		for _, id := range containerIDs {
-			go func(containerID string) {
-				errCh <- streamSingle(ctx, dockerClient, containerID, interval, writeJSON)
-			}(id)
+		errCh := make(chan error, len(containers))
+		for _, c := range containers {
+			go func(info containerInfo) {
+				errCh <- streamSingle(ctx, dockerClient, info.ID, info.StackName, interval, writeJSON)
+			}(c)
 		}
 
 		for {
@@ -100,7 +124,7 @@ func StatsWebSocketHandler(dockerClient *client.Client) http.Handler {
 	})
 }
 
-func streamSingle(ctx context.Context, cli *client.Client, containerID string, interval time.Duration, write func(interface{}) error) error {
+func streamSingle(ctx context.Context, cli *client.Client, containerID string, stackName string, interval time.Duration, write func(interface{}) error) error {
 	stats, err := cli.ContainerStats(ctx, containerID, true)
 	if err != nil {
 		return err
@@ -138,6 +162,7 @@ func streamSingle(ctx context.Context, cli *client.Client, containerID string, i
 		if err := write(statsPayload{
 			ContainerID: containerID,
 			Name:        strings.TrimPrefix(v.Name, "/"),
+			StackName:   stackName,
 			CPUPercent:  cpu,
 			MemPercent:  memPercent,
 			Timestamp:   now.UnixMilli(),
@@ -163,3 +188,4 @@ func calculateCPUPercent(v types.StatsJSON) float64 {
 	}
 	return (cpuDelta / systemDelta) * numCPUs * 100
 }
+

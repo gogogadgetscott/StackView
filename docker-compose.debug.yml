@@ -1,0 +1,60 @@
+services:
+  backend-dev:
+    image: golang:1.21
+    working_dir: /workspace/backend
+    command: ["go", "run", "./cmd/server"]
+    environment:
+      - STACKVIEW_SQLITE_PATH=/workspace/backend/.data/stackview.db
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - ./backend:/workspace/backend
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8080:8080"
+
+  backend-test:
+    image: golang:1.21
+    working_dir: /workspace/backend
+    command: ["go", "test", "./..."]
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - ./backend:/workspace/backend
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  frontend-dev:
+    image: node:20-bullseye
+    working_dir: /workspace/frontend
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        if [ ! -f package.json ]; then
+          npm init -y >/dev/null 2>&1
+          npm pkg set scripts.dev="next dev" >/dev/null 2>&1
+          npm install next react react-dom typescript @types/react @types/node tailwindcss postcss autoprefixer @tanstack/react-table recharts lucide-react
+        else
+          npm install
+        fi
+        npm run dev -- --hostname 0.0.0.0
+    environment:
+      - NEXT_PUBLIC_STACKVIEW_WS=ws://backend-dev:8080/ws/stats
+      - NEXT_TELEMETRY_DISABLED=1
+    volumes:
+      - ./frontend:/workspace/frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend-dev
+
+  frontend-test:
+    image: node:20-bullseye
+    working_dir: /workspace/frontend
+    command: ["sh", "-c", "npm install && npm test"]
+    environment:
+      - NEXT_PUBLIC_STACKVIEW_WS=ws://localhost:8080/ws/stats
+    volumes:
+      - ./frontend:/workspace/frontend
+    depends_on:
+      - backend-dev

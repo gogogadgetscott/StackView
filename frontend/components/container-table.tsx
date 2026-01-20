@@ -25,11 +25,21 @@ import { ContainerRow, StatPoint } from "../lib/types";
 import { ContainerExpandedRow } from "./container-expanded-row";
 import { TagInput, TagBadge } from "./tag-input";
 
+const API_BASE = process.env.NEXT_PUBLIC_STACKVIEW_API ?? "http://localhost:8080";
 const WS_URL = process.env.NEXT_PUBLIC_STACKVIEW_WS ?? "ws://localhost:8080/ws/stats";
 
 function useStatsStream(containerIds: string[]) {
   const [rows, setRows] = useState<ContainerRow[]>([]);
+  const [tagMap, setTagMap] = useState<Record<string, string[]>>({});
   const sparkRef = useRef<Record<string, StatPoint[]>>({});
+
+  useEffect(() => {
+    // Fetch all container tags once
+    fetch(`${API_BASE}/api/containers/tags`)
+      .then((res) => res.json())
+      .then((data) => setTagMap(data))
+      .catch((err) => console.error("failed to fetch tags", err));
+  }, []);
 
   useEffect(() => {
     const socket = new WebSocket(WS_URL);
@@ -56,20 +66,35 @@ function useStatsStream(containerIds: string[]) {
           status: "running",
           ports: [],
           note: "",
+          tags: tagMap[data.containerId] ?? [],
           spark: trimmed,
           cpu: data.cpuPercent,
           mem: data.memPercent,
         };
-        return [
-          ...prev.filter((r) => r.id !== data.containerId),
-          { ...base, cpu: data.cpuPercent, mem: data.memPercent, spark: trimmed, stack: data.stackName || base.stack },
-        ];
+        
+        // Update existing row or add new one
+        const updatedRow = { 
+          ...base, 
+          cpu: data.cpuPercent, 
+          mem: data.memPercent, 
+          spark: trimmed, 
+          stack: data.stackName || base.stack 
+        };
+
+        const index = prev.findIndex(r => r.id === data.containerId);
+        if (index >= 0) {
+          const newRows = [...prev];
+          newRows[index] = updatedRow;
+          return newRows;
+        } else {
+          return [...prev, updatedRow];
+        }
       });
     };
 
     socket.onerror = (err) => console.error("ws error", err);
     return () => socket.close();
-  }, [containerIds]);
+  }, [containerIds, tagMap]);
 
   return rows;
 }
@@ -97,9 +122,50 @@ function Sparkline({ points }: { points: StatPoint[] }) {
 export function ContainerTable() {
   const data = useStatsStream([]);
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [allSuggestions, setAllSuggestions] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/tags`)
+      .then((res) => res.json())
+      .then((data) => setAllSuggestions(data))
+      .catch((err) => console.error("failed to fetch tag suggestions", err));
+  }, []);
+
+  const handleTagChange = async (containerId: string, newTags: string[]) => {
+    try {
+      const resp = await fetch(`${API_BASE}/api/containers/${containerId}/tags`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags: newTags }),
+      });
+      if (resp.ok) {
+        // Update local state is handled by the hook if we pass an update function
+        // but for now let's just assume the UI is snappy enough
+      }
+    } catch (err) {
+      console.error("failed to update tags", err);
+    }
+  };
 
   const columns = useMemo<ColumnDef<ContainerRow>[]>(
     () => [
+      {
+        id: "expander",
+        header: "",
+        cell: ({ row }) => (
+          <button
+            onClick={() => row.toggleExpanded()}
+            className="p-1 hover:bg-neutral-800 rounded transition-colors"
+          >
+            {row.getIsExpanded() ? (
+              <ChevronDown className="h-4 w-4 text-cyan-400" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-neutral-500" />
+            )}
+          </button>
+        ),
+        size: 32,
+      },
       {
         id: "status",
         header: "",
@@ -185,6 +251,21 @@ export function ContainerTable() {
         ),
       },
       {
+        accessorKey: "tags",
+        header: "Tags",
+        cell: ({ row }) => (
+          <TagInput
+            tags={row.original.tags}
+            onChange={(newTags) => {
+              handleTagChange(row.original.id, newTags);
+              // Optimistically update the row?
+              row.original.tags = newTags;
+            }}
+            suggestions={allSuggestions}
+          />
+        ),
+      },
+      {
         id: "actions",
         header: "",
         cell: () => (
@@ -213,6 +294,8 @@ export function ContainerTable() {
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
+    getRowCanExpand: () => true,
   });
 
   return (
@@ -231,13 +314,25 @@ export function ContainerTable() {
         </thead>
         <tbody className="divide-y divide-neutral-800">
           {table.getRowModel().rows.map((row) => (
-            <tr key={row.id} className="hover:bg-neutral-800/40">
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className="px-4 py-3 align-middle">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
-            </tr>
+            <>
+              <tr key={row.id} className={`hover:bg-neutral-800/40 ${row.getIsExpanded() ? "bg-neutral-800/20" : ""}`}>
+                {row.getVisibleCells().map((cell) => (
+                  <td key={cell.id} className="px-4 py-3 align-middle">
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                ))}
+              </tr>
+              {row.getIsExpanded() && (
+                <tr key={`${row.id}-expanded`}>
+                  <td colSpan={row.getVisibleCells().length} className="p-0">
+                    <ContainerExpandedRow
+                      containerId={row.original.id}
+                      containerName={row.original.name}
+                    />
+                  </td>
+                </tr>
+              )}
+            </>
           ))}
         </tbody>
       </table>

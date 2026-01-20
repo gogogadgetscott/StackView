@@ -17,3 +17,36 @@ a {
   color: inherit;
   text-decoration: none;
 }
+/* Scrollbar styling for webkit browsers */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a1f;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #404045;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #505055;
+}
+
+/* Smooth animations */
+@layer components {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-track-neutral-900 {
+    scrollbar-color: #404045 #1a1a1f;
+  }
+
+  .scrollbar-thumb-neutral-700 {
+    scrollbar-color: #404045 #1a1a1f;
+  }
+}

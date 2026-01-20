@@ -1,0 +1,71 @@
+# StackView Production Deployment
+# Single-command setup for Docker container monitoring with observability
+
+services:
+  # Combined backend + frontend in production
+  stackview:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: stackview:latest
+    container_name: stackview
+    restart: unless-stopped
+    ports:
+      # Web UI
+      - "9000:3000"
+      # API & WebSocket (optional, for external integrations)
+      - "9080:8080"
+    environment:
+      # Comma-separated list of directories to scan for compose files
+      - STACKVIEW_STACK_ROOTS=/stacks
+      # SQLite database for history and configuration
+      - STACKVIEW_SQLITE_PATH=/data/stackview.db
+      # Disable Next.js telemetry
+      - NEXT_TELEMETRY_DISABLED=1
+    volumes:
+      # Required: Docker socket for container monitoring
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Required: Mount your compose directories
+      # Examples:
+      #   - ~/docker:/stacks/home:ro
+      #   - /opt/stacks:/stacks/opt:ro
+      - ${HOME}/docker:/stacks:ro
+      # Required: Persistent storage for metrics history & alerts
+      - stackview_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      # StackView will detect itself as a stack
+      com.docker.compose.project: "stackview"
+
+  # Optional: Agent for remote host monitoring
+  # Deploy this on each additional Docker host you want to monitor
+  stackview-agent:
+    image: stackview:agent
+    container_name: stackview-agent
+    restart: unless-stopped
+    profiles:
+      - agent  # Only starts with --profile agent
+    ports:
+      - "9081:8080"
+    environment:
+      - STACKVIEW_AGENT_MODE=true
+      - STACKVIEW_STACK_ROOTS=/stacks
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${HOME}/docker:/stacks:ro
+    labels:
+      com.docker.compose.project: "stackview-agent"
+
+volumes:
+  stackview_data:
+    name: stackview_data
+
+# Network for multi-host setup (optional)
+networks:
+  default:
+    name: stackview_network

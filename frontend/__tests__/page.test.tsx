@@ -10,9 +10,16 @@ describe("Page Component", () => {
     expect(screen.getByText("StackView")).toBeInTheDocument();
   });
 
-  it("displays the realtime stats badge", () => {
+  it("displays the connected status pill", () => {
     render(<Page />);
 
-    expect(screen.getByText(/Realtime stats via WebSocket/)).toBeInTheDocument();
+    expect(screen.getByText("Connected")).toBeInTheDocument();
+  });
+
+  it("renders stacks and containers sections", () => {
+    render(<Page />);
+
+    expect(screen.getByText("Stacks")).toBeInTheDocument();
+    expect(screen.getByText("All Containers")).toBeInTheDocument();
   });
 });

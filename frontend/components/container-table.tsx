@@ -39,7 +39,11 @@ function useStatsStream(containerIds: string[]) {
     fetch(`${API_BASE}/api/containers/tags`)
       .then((res) => res.json())
       .then((data) => setTagMap(data))
-      .catch((err) => console.error("failed to fetch tags", err));
+      .catch((err) => {
+        if (!(err instanceof TypeError && err.message === 'Failed to fetch')) {
+          console.error("API Error (Tags):", err);
+        }
+      });
   }, []);
 
   useEffect(() => {
@@ -93,7 +97,10 @@ function useStatsStream(containerIds: string[]) {
       });
     };
 
-    socket.onerror = (err) => console.error("ws error", err);
+    socket.onerror = (err) => {
+      // WebSocket errors are often silent in the UI anyway, but let's avoid console noise
+      // if it's just a connection failure during shutdown
+    };
     return () => socket.close();
   }, [containerIds, tagMap]);
 
@@ -105,89 +112,99 @@ function ContainerCard({ row, onTagChange, allSuggestions }: { row: any, onTagCh
   const isRunning = container.status === "running";
   
   return (
-    <div className="bg-neutral-900/40 border border-neutral-800 rounded-xl overflow-hidden mb-3 shadow-md">
-      <div className="p-4 space-y-3">
+    <div className={`transition-all duration-500 rounded-[2rem] border overflow-hidden mb-5 backdrop-blur-2xl shadow-2xl ${row.getIsExpanded() ? 'bg-white/[0.05] border-white/20' : 'bg-white/[0.02] border-white/5 hover:border-white/10'}`}>
+      <div className="p-6 space-y-4">
         {/* Line 1: Name + Status */}
         <div className="flex items-center justify-between">
-          <span className="font-bold text-neutral-100 text-base truncate pr-2">{container.name}</span>
-          <div className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
+          <div className="flex items-center gap-3">
+             <div className="p-2 bg-purple-500/10 rounded-xl border border-purple-500/20">
+               <div className={`h-2 w-2 rounded-full ${isRunning ? 'bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-neutral-600'}`} />
+             </div>
+             <span className="font-black text-white text-base tracking-tight truncate pr-2 max-w-[150px]">{container.name}</span>
+          </div>
+          <div className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-[0.2em] border backdrop-blur-md ${
             isRunning 
-              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
-              : "bg-neutral-500/10 border-neutral-500/30 text-neutral-400"
+              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
+              : "bg-white/5 border-white/10 text-neutral-500"
           }`}>
-            {isRunning ? "Running" : "Stopped"}
+            {isRunning ? "Operational" : "Suspended"}
           </div>
         </div>
 
-        {/* Line 2: Stack + Stats */}
-        <div className="flex items-center text-xs text-neutral-400 font-medium tracking-tight">
-          <Link
-            href={`/stacks/${encodeURIComponent(container.stack)}`}
-            className="text-cyan-400 hover:underline"
-          >
-            {container.stack}
-          </Link>
-          <span className="mx-2 text-neutral-700">·</span>
-          <span>CPU {container.cpu.toFixed(1)}%</span>
-          <span className="mx-2 text-neutral-700">·</span>
-          <span>Mem {container.mem.toFixed(1)}%</span>
+        {/* Line 2: Stack + Stats - Glass Strip */}
+        <div className="flex items-center justify-between bg-black/20 rounded-2xl px-5 py-3 border border-white/[0.03] shadow-inner">
+          <div className="flex flex-col">
+            <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest leading-none mb-1">Stack</span>
+            <Link
+              href={`/stacks/${encodeURIComponent(container.stack)}`}
+              className="text-[11px] font-black text-cyan-400 hover:text-cyan-300 truncate max-w-[100px]"
+            >
+              {container.stack}
+            </Link>
+          </div>
+          <div className="h-6 w-px bg-white/5" />
+          <div className="flex flex-col items-center">
+            <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest leading-none mb-1">CPU</span>
+            <span className="text-[11px] font-black text-neutral-300 tabular-nums">{container.cpu.toFixed(1)}%</span>
+          </div>
+          <div className="h-6 w-px bg-white/5" />
+          <div className="flex flex-col items-end">
+            <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest leading-none mb-1">MEM</span>
+            <span className="text-[11px] font-black text-neutral-300 tabular-nums">{container.mem.toFixed(1)}%</span>
+          </div>
         </div>
 
-        {/* Line 3: Notes */}
-        <div className="flex items-center gap-2">
+        {/* Line 3: Notes & Tags Preview */}
+        <div className="flex items-center gap-3">
+          <StickyNote className="h-3.5 w-3.5 text-neutral-600" />
           <div className="flex-1 min-w-0">
-            {container.note ? (
-              <p className="text-xs text-neutral-300 truncate italic">"{container.note}"</p>
-            ) : (
-              <p className="text-xs text-neutral-500 italic">No notes</p>
-            )}
+            <p className="text-[11px] font-bold text-neutral-500 truncate">
+               {container.note || "No situational notes added..."}
+            </p>
           </div>
-          <button className="shrink-0 px-2 py-1 rounded border border-neutral-800 bg-neutral-800/50 text-[10px] font-bold uppercase tracking-tighter text-neutral-400 hover:text-neutral-200">
-            Add Note
-          </button>
         </div>
 
-        {/* Line 4: Primary Actions */}
+        {/* Line 4: Primary Actions - Premium Dock Style */}
         <div className="flex items-center gap-2 pt-2">
           {isRunning ? (
-            <>
+            <div className="flex-1 flex gap-2">
               <button 
-                className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20 py-2.5 text-xs font-bold text-cyan-400 active:bg-cyan-500/20"
+                className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-white/5 border border-white/10 py-3 text-[10px] font-black tracking-widest text-white hover:bg-white/10 active:scale-95 transition-all"
               >
-                <RefreshCw className="h-3.5 w-3.5" />
-                RESTART
+                <RefreshCw className="h-3.5 w-3.5 text-cyan-400" />
+                ROLLOUT
               </button>
               <button 
-                className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 py-2.5 text-xs font-bold text-red-400 active:bg-red-500/20"
+                className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-red-500/5 border border-red-500/10 py-3 text-[10px] font-black tracking-widest text-red-400 hover:bg-red-500/10 active:scale-95 transition-all"
               >
                 <Square className="h-3.5 w-3.5" />
-                STOP
+                TERMINATE
               </button>
-            </>
+            </div>
           ) : (
             <button 
-              className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 py-2.5 text-xs font-bold text-emerald-400 active:bg-emerald-500/20"
+              className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 py-3 text-[10px] font-black tracking-widest text-emerald-400 hover:bg-emerald-500/10 active:scale-95 transition-all"
             >
               <Play className="h-3.5 w-3.5" />
-              START
+              PROVISION
             </button>
           )}
           <button 
             onClick={() => row.toggleExpanded()}
-            className={`px-3 py-2.5 rounded-lg border flex items-center justify-center transition-colors ${
+            className={`w-12 h-12 rounded-2xl border flex items-center justify-center transition-all duration-300 ${
               row.getIsExpanded() 
-                ? "bg-cyan-500 border-cyan-500 text-white shadow-lg shadow-cyan-500/20" 
-                : "bg-neutral-800 border-neutral-700 text-neutral-400"
+                ? "bg-purple-500 border-purple-400 text-white shadow-[0_0_20px_rgba(168,85,247,0.4)]" 
+                : "bg-white/5 border-white/10 text-neutral-500 hover:border-white/20"
             }`}
           >
-            <MoreHorizontal className="h-4 w-4" />
+            {row.getIsExpanded() ? <ChevronDown className="h-5 w-5" /> : <MoreHorizontal className="h-5 w-5" />}
           </button>
         </div>
       </div>
 
       {/* Expanded section on Mobile */}
       {row.getIsExpanded() && (
-        <div className="border-t border-neutral-800 bg-neutral-950/20">
+        <div className="border-t border-white/5 bg-black/40 p-4">
           <ContainerExpandedRow
             containerId={container.id}
             containerName={container.name}
@@ -201,17 +218,11 @@ function ContainerCard({ row, onTagChange, allSuggestions }: { row: any, onTagCh
 function Sparkline({ points }: { points: StatPoint[] }) {
   if (!points.length) return <div className="h-10" />;
   return (
-    <div className="h-10 w-32" style={{ minWidth: 128, minHeight: 40 }}>
-      <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-        <LineChart data={points} margin={{ top: 2, bottom: 2, right: 0, left: 0 }}>
-          <CartesianGrid stroke="#1f2937" strokeWidth={0.5} vertical={false} />
-          <YAxis hide domain={[0, 100]} />
-          <Tooltip
-            contentStyle={{ background: "#0f172a", border: "1px solid #1f2937", color: "#e5e7eb" }}
-            formatter={(value: any) => `${value.toFixed(1)}%`}
-            labelFormatter={(label) => new Date(label).toLocaleTimeString()}
-          />
-          <Line type="monotone" dataKey="cpu" stroke="#38bdf8" strokeWidth={2} dot={false} isAnimationActive={false} />
+    <div className="h-8 w-24 opacity-60 hover:opacity-100 transition-opacity">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={points}>
+          <Line type="monotone" dataKey="cpu" stroke="#22d3ee" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+          <Line type="monotone" dataKey="mem" stroke="#a855f7" strokeWidth={1.5} dot={false} isAnimationActive={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -239,10 +250,6 @@ export function ContainerTable() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tags: newTags }),
       });
-      if (resp.ok) {
-        // Update local state is handled by the hook if we pass an update function
-        // but for now let's just assume the UI is snappy enough
-      }
     } catch (err) {
       console.error("failed to update tags", err);
     }
@@ -256,40 +263,38 @@ export function ContainerTable() {
         cell: ({ row }) => (
           <button
             onClick={() => row.toggleExpanded()}
-            className={`p-1 rounded transition-colors ${row.getIsExpanded() ? 'bg-cyan-500/20 text-cyan-400' : 'hover:bg-neutral-800 text-neutral-500'}`}
+            className={`p-1.5 rounded-lg transition-all ${row.getIsExpanded() ? 'bg-purple-500/20 text-purple-400' : 'hover:bg-white/5 text-neutral-600'}`}
           >
             {row.getIsExpanded() ? (
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="h-3.5 w-3.5" />
             ) : (
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-3.5 w-3.5" />
             )}
           </button>
         ),
-        size: 32,
+        size: 40,
       },
       {
         id: "status",
         header: "",
         cell: ({ row }) => (
-          <span
-            className={`mr-2 inline-flex h-2 w-2 items-center justify-center rounded-full shadow-inner shadow-cyan-400/40 ${
-              row.original.status === "running" ? "bg-emerald-400 animate-pulse" : "bg-neutral-500"
-            }`}
-          />
+          <div className="flex justify-center">
+             <div className={`h-2 w-2 rounded-full ${row.original.status === "running" ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)] animate-pulse" : "bg-neutral-700"}`} />
+          </div>
         ),
-        size: 24,
+        size: 30,
       },
       {
         accessorKey: "name",
-        header: "Name",
+        header: "Container",
         cell: ({ row }) => (
-          <div className="flex flex-col min-w-0">
-            <div 
-              className="font-semibold text-neutral-100 truncate max-w-[180px] sm:max-w-none cursor-default" 
-              title={`Container ID: ${row.original.id}`}
-            >
+          <div className="flex flex-col min-w-0 py-1">
+            <span className="font-bold text-white tracking-tight truncate text-[13px] leading-tight">
               {row.original.name}
-            </div>
+            </span>
+            <span className="text-[9px] font-black text-neutral-600 uppercase tracking-widest leading-none mt-1">
+              ID: {row.original.id.slice(0, 8)}
+            </span>
           </div>
         ),
       },
@@ -299,7 +304,7 @@ export function ContainerTable() {
         cell: ({ row }) => (
           <Link
             href={`/stacks/${encodeURIComponent(row.original.stack)}`}
-            className="rounded border border-neutral-800 bg-neutral-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-200 hover:border-cyan-500 hover:bg-neutral-800 transition-colors"
+            className="inline-flex rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[9px] font-black uppercase tracking-widest text-cyan-400 hover:border-cyan-400/40 hover:bg-cyan-400/5 transition-all backdrop-blur-md"
           >
             {row.original.stack}
           </Link>
@@ -307,76 +312,75 @@ export function ContainerTable() {
       },
       {
         id: "stats",
-        header: "Stats",
+        header: "Live Telemetry",
         cell: ({ row }) => (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <Sparkline points={row.original.spark} />
-            <div className="text-[11px] font-bold text-neutral-400 tabular-nums">
-              <div className="text-cyan-400">{row.original.cpu.toFixed(1)}%</div>
-              <div className="text-purple-400">{row.original.mem.toFixed(1)}%</div>
+            <div className="flex gap-3 text-[10px] font-black tabular-nums border-l border-white/5 pl-4">
+              <div className="flex flex-col">
+                <span className="text-neutral-700 text-[8px] uppercase tracking-tighter">CPU</span>
+                <span className="text-cyan-400/80">{row.original.cpu.toFixed(1)}%</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-neutral-700 text-[8px] uppercase tracking-tighter">RAM</span>
+                <span className="text-purple-400/80">{row.original.mem.toFixed(1)}%</span>
+              </div>
             </div>
           </div>
         ),
       },
       {
         accessorKey: "ports",
-        header: "Ports",
+        header: "Endpoints",
         cell: ({ row }) => (
-          <div className="flex flex-wrap gap-1 text-[10px] font-bold font-mono text-cyan-200">
+          <div className="flex flex-wrap gap-1.5">
             {row.original.ports.length ? (
               row.original.ports.map((p) => (
                 <a
                   key={p}
                   href={`http://localhost:${p}`}
-                  className="rounded border border-neutral-800 px-1.5 py-0.5 hover:border-cyan-500"
+                  className="rounded-lg border border-white/[0.05] bg-black/20 px-2 py-1 text-[9px] font-black font-mono text-neutral-400 hover:text-white hover:border-white/20 transition-all"
                   target="_blank"
                   rel="noreferrer"
                 >
-                  {p}
+                  :{p}
                 </a>
               ))
             ) : (
-              <span className="text-neutral-700">—</span>
+              <span className="text-[9px] font-black text-neutral-800 uppercase tracking-widest">—</span>
             )}
           </div>
         ),
       },
       {
         accessorKey: "note",
-        header: "Notes",
+        header: "Insights",
         cell: ({ row }) => {
           const [isFocused, setIsFocused] = useState(false);
           const hasNote = row.original.note && row.original.note.trim().length > 0;
           
           return (
-            <div className="group relative">
+            <div className="group relative max-w-[150px]">
               <input
-                className="w-full rounded bg-transparent px-2 py-0.5 text-sm text-neutral-200 outline-none transition-colors hover:bg-neutral-900/50 focus:bg-neutral-900 focus:ring-1 focus:ring-cyan-500/30 font-medium"
+                className="w-full rounded-xl bg-transparent px-3 py-1.5 text-[11px] font-bold text-neutral-300 outline-none transition-all hover:bg-white/[0.03] focus:bg-white/[0.05] focus:ring-1 focus:ring-white/10"
                 defaultValue={row.original.note}
-                placeholder={isFocused || !hasNote ? "Add note…" : ""}
+                placeholder={isFocused || !hasNote ? "Add note..." : ""}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
               />
-              {!hasNote && !isFocused && (
-                <div className="pointer-events-none absolute inset-0 flex items-center px-2 opacity-0 transition-opacity group-hover:opacity-100">
-                  <StickyNote className="mr-2 h-3 w-3 text-neutral-600" />
-                  <span className="text-[10px] font-bold uppercase tracking-tighter text-neutral-600">Add note…</span>
-                </div>
-              )}
             </div>
           );
         },
       },
       {
         accessorKey: "tags",
-        header: "Tags",
+        header: "Classifiers",
         cell: ({ row }) => (
-          <div className="min-w-[150px]">
+          <div className="min-w-[120px]">
             <TagInput
               tags={row.original.tags}
               onChange={(newTags) => {
                 handleTagChange(row.original.id, newTags);
-                // Optimistically update the row?
                 row.original.tags = newTags;
               }}
               suggestions={allSuggestions}
@@ -386,54 +390,51 @@ export function ContainerTable() {
       },
       {
         id: "actions",
-        header: "Actions",
+        header: "",
         cell: ({ row }) => {
           const isRunning = row.original.status === "running";
           const isStopped = row.original.status === "exited";
           
           return (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 justify-end">
               {isStopped ? (
                 <button 
-                  className="flex items-center gap-1.5 rounded-lg border border-emerald-600/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-bold tracking-widest text-emerald-400 transition-all hover:bg-emerald-500/20 hover:border-emerald-500/50" 
-                  title="Start container"
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-500/10 bg-emerald-500/5 text-emerald-500 transition-all hover:bg-emerald-500/20 active:scale-90" 
+                  title="Provision"
                 >
-                  <Play className="h-3 w-3" />
-                  <span>START</span>
+                  <Play className="h-3.5 w-3.5 fill-emerald-500/20" />
                 </button>
               ) : (
                 <>
                   <button 
-                    className="flex items-center gap-1.5 rounded-lg border border-cyan-600/30 bg-cyan-500/10 px-2 py-1 text-[10px] font-bold tracking-widest text-cyan-400 transition-all hover:bg-cyan-500/20 hover:border-cyan-500/50" 
-                    title="Restart container"
+                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/10 bg-cyan-500/5 text-cyan-400 transition-all hover:bg-cyan-500/20 active:scale-90" 
+                    title="Restart"
                   >
-                    <RefreshCw className="h-3 w-3" />
-                    <span>RESTART</span>
+                    <RefreshCw className="h-3.5 w-3.5" />
                   </button>
                   <button 
-                    className="flex items-center gap-1.5 rounded-lg border border-red-600/30 bg-red-500/10 px-2 py-1 text-[10px] font-bold tracking-widest text-red-400 transition-all hover:bg-red-500/20 hover:border-red-500/50" 
-                    title="Stop container"
+                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-red-500/10 bg-red-500/5 text-red-500 transition-all hover:bg-red-500/20 active:scale-90" 
+                    title="Terminate"
                   >
-                    <Square className="h-3 w-3" />
-                    <span>STOP</span>
+                    <Square className="h-3.5 w-3.5 fill-red-500/20" />
                   </button>
                 </>
               )}
+              <div className="h-4 w-px bg-white/5 mx-1" />
               <button 
                 onClick={() => row.toggleExpanded()}
-                className={`flex items-center gap-2 rounded-lg border px-1.5 py-1 transition-all ${
+                className={`flex h-8 w-8 items-center justify-center rounded-xl border transition-all ${
                   row.getIsExpanded() 
-                    ? "bg-cyan-500 border-cyan-500 text-white shadow-lg shadow-cyan-500/20" 
-                    : "border-neutral-800 bg-neutral-900/40 text-neutral-500 hover:text-neutral-300 hover:border-neutral-700"
+                    ? "bg-purple-500 border-purple-400 text-white shadow-lg" 
+                    : "border-white/5 bg-white/5 text-neutral-500 hover:text-white hover:border-white/20"
                 }`}
-                title="View more details (Logs, Env, Inspect)"
               >
-                <MoreHorizontal className="h-3.5 w-3.5" />
+                <MoreHorizontal className="h-4 w-4" />
               </button>
             </div>
           );
         },
-        size: 160,
+        size: 150,
       },
     ],
     [allSuggestions]
@@ -459,55 +460,59 @@ export function ContainerTable() {
   });
 
   return (
-    <div className="space-y-4">
-      {/* Filters Bar - Sticky for convenience */}
-      <div className="sticky top-0 lg:top-auto z-20 -mx-4 lg:mx-0 mb-4 bg-neutral-950/95 lg:bg-transparent px-4 py-3 lg:p-0 backdrop-blur-md transition-all border-b border-neutral-800 lg:border-none shadow-xl lg:shadow-none">
-        <div className="flex flex-col sm:flex-row items-center gap-3">
+    <div className="space-y-8">
+      {/* Filters Bar - Sticky Glass */}
+      <div className="sticky top-0 z-20 -mx-6 lg:mx-0 mb-8 bg-neutral-950/60 lg:bg-transparent px-6 py-4 lg:p-0 backdrop-blur-xl lg:backdrop-blur-none transition-all">
+        <div className="flex flex-col sm:flex-row items-center gap-4 bg-white/[0.02] border border-white/5 p-4 rounded-3xl shadow-2xl backdrop-blur-2xl">
           {/* Search */}
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-500" />
+          <div className="relative w-full lg:max-w-md">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-600" />
             <input
-              placeholder="Search containers..."
+              placeholder="Filter assets..."
               value={globalFilter ?? ""}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 py-2.5 lg:py-2 pl-9 pr-4 text-sm text-neutral-200 outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all shadow-sm"
+              className="w-full rounded-2xl border border-white/5 bg-black/20 py-3 pl-12 pr-4 text-[13px] font-bold text-neutral-200 outline-none focus:border-cyan-500/40 focus:ring-4 focus:ring-cyan-500/5 transition-all shadow-inner placeholder:text-neutral-700"
             />
           </div>
 
-          {/* Filters Group for Mobile Flow */}
-          <div className="flex gap-2 w-full sm:w-auto">
-            <select
-              value={(table.getColumn("status")?.getFilterValue() as string) ?? ""}
-              onChange={(e) => table.getColumn("status")?.setFilterValue(e.target.value)}
-              className="flex-1 sm:flex-none sm:min-w-[140px] rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2.5 lg:py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-300 outline-none focus:border-cyan-500/50 transition-all"
-            >
-              <option value="">All Statuses</option>
-              <option value="running">Running</option>
-              <option value="stopped">Stopped</option>
-            </select>
-
-            <select
-              value={(table.getColumn("stack")?.getFilterValue() as string) ?? ""}
-              onChange={(e) => table.getColumn("stack")?.setFilterValue(e.target.value)}
-              className="flex-1 sm:flex-none sm:min-w-[140px] rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2.5 lg:py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-300 outline-none focus:border-cyan-500/50 transition-all"
-            >
-              <option value="">All Stacks</option>
-              {uniqueStacks.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="hidden lg:block text-[10px] uppercase font-bold tracking-widest text-neutral-600 ml-auto bg-neutral-900/50 px-2 py-1 rounded-md border border-neutral-800/50">
-            {table.getFilteredRowModel().rows.length} / {data.length}
+          {/* Filters Group */}
+          <div className="flex gap-2 w-full sm:w-auto ml-auto">
+            <div className="flex items-center gap-2 bg-black/20 border border-white/5 rounded-2xl px-2 py-1.5 shadow-inner">
+              <select
+                value={(table.getColumn("status")?.getFilterValue() as string) ?? ""}
+                onChange={(e) => table.getColumn("status")?.setFilterValue(e.target.value)}
+                className="bg-transparent px-4 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 outline-none cursor-pointer hover:text-white transition-colors"
+              >
+                <option value="" className="bg-neutral-900 font-sans">Status: Any</option>
+                <option value="running" className="bg-neutral-900 font-sans">Operational</option>
+                <option value="stopped" className="bg-neutral-900 font-sans">Suspended</option>
+              </select>
+              <div className="h-4 w-px bg-white/5" />
+              <select
+                value={(table.getColumn("stack")?.getFilterValue() as string) ?? ""}
+                onChange={(e) => table.getColumn("stack")?.setFilterValue(e.target.value)}
+                className="bg-transparent px-4 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 outline-none cursor-pointer hover:text-white transition-colors"
+              >
+                <option value="" className="bg-neutral-900 font-sans">Stacks: All</option>
+                {uniqueStacks.map((s) => (
+                  <option key={s} value={s} className="bg-neutral-900 font-sans">
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="hidden lg:flex items-center justify-center px-6 rounded-2xl border border-white/5 bg-black/20 text-[10px] font-black tracking-[0.2em] text-neutral-600 uppercase shadow-inner">
+              <span className="text-purple-500 mr-2">{table.getFilteredRowModel().rows.length}</span>
+              <span className="text-neutral-800">/</span>
+              <span className="ml-2">{data.length} Assets</span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Mobile Card View */}
-      <div className="lg:hidden px-0.5">
+      <div className="lg:hidden">
         {table.getRowModel().rows.map((row) => (
           <ContainerCard 
             key={row.id} 
@@ -517,57 +522,52 @@ export function ContainerTable() {
           />
         ))}
         {table.getRowModel().rows.length === 0 && (
-          <div className="text-center py-12 text-neutral-500 text-sm italic bg-neutral-900/20 rounded-xl border border-neutral-800">
-            No containers match your search.
+          <div className="text-center py-20 bg-white/[0.02] rounded-[2rem] border border-white/5 backdrop-blur-xl">
+            <Search className="mx-auto h-10 w-10 text-neutral-800 mb-4" />
+            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-neutral-600">No matches found</p>
           </div>
         )}
       </div>
 
       {/* Desktop Table View */}
-      <div className="hidden lg:block overflow-x-auto rounded-xl border border-neutral-800/60 bg-neutral-900/40 shadow-2xl backdrop-blur-sm scrollbar-thin scrollbar-track-transparent scrollbar-thumb-neutral-800">
-        <table className="min-w-full divide-y divide-neutral-800 border-collapse">
-          <thead className="bg-neutral-900/80 text-[10px] uppercase font-bold tracking-widest text-neutral-500 sticky top-0 z-10 backdrop-blur-md">
+      <div className="hidden lg:block overflow-hidden rounded-[2.5rem] border border-white/[0.08] bg-white/[0.02] shadow-2xl backdrop-blur-3xl">
+        <table className="min-w-full divide-y divide-white/[0.05] border-collapse">
+          <thead className="bg-white/[0.02] text-[10px] uppercase font-black tracking-[0.2em] text-neutral-500 sticky top-0 z-10 backdrop-blur-xl">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  const columnId = header.id || header.column.id;
-                  const isHiddenOnMobile = ["stack", "ports", "note", "tags", "actions", "stats"].includes(columnId);
-                  return (
-                    <th 
-                      key={header.id} 
-                      className={`px-4 py-2.5 text-left border-b border-neutral-800 ${isHiddenOnMobile ? 'hidden lg:table-cell' : ''}`}
-                    >
-                      {header.isPlaceholder ? null : header.column.columnDef.header as string}
-                    </th>
-                  );
-                })}
+                {headerGroup.headers.map((header) => (
+                  <th 
+                    key={header.id} 
+                    className="px-6 py-5 text-left border-b border-white/[0.05]"
+                  >
+                    {header.isPlaceholder ? null : header.column.columnDef.header as string}
+                  </th>
+                ))}
               </tr>
             ))}
           </thead>
-          <tbody className="divide-y divide-neutral-800/50">
+          <tbody className="divide-y divide-white/[0.03]">
             {table.getRowModel().rows.map((row) => (
               <React.Fragment key={row.id}>
-                <tr className={`hover:bg-neutral-800/40 group transition-colors ${row.getIsExpanded() ? "bg-cyan-500/5" : ""}`}>
-                  {row.getVisibleCells().map((cell) => {
-                    const columnId = cell.column.id;
-                    const isHiddenOnMobile = ["stack", "ports", "note", "tags", "actions", "stats"].includes(columnId);
-                    return (
-                      <td 
-                        key={cell.id} 
-                        className={`px-4 py-1.5 align-middle ${isHiddenOnMobile ? 'hidden lg:table-cell' : ''}`}
-                      >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    );
-                  })}
+                <tr className={`hover:bg-white/[0.03] group transition-all duration-300 ${row.getIsExpanded() ? "bg-purple-500/5" : ""}`}>
+                  {row.getVisibleCells().map((cell) => (
+                    <td 
+                      key={cell.id} 
+                      className="px-6 py-4 align-middle"
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
                 </tr>
                 {row.getIsExpanded() && (
                   <tr key={`${row.id}-expanded`}>
-                    <td colSpan={row.getVisibleCells().length} className="p-0 border-b border-neutral-800/50">
-                      <ContainerExpandedRow
-                        containerId={row.original.id}
-                        containerName={row.original.name}
-                      />
+                    <td colSpan={row.getVisibleCells().length} className="p-0 border-b border-white/[0.05] bg-black/40">
+                      <div className="p-8">
+                        <ContainerExpandedRow
+                          containerId={row.original.id}
+                          containerName={row.original.name}
+                        />
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -575,6 +575,12 @@ export function ContainerTable() {
             ))}
           </tbody>
         </table>
+        {table.getRowModel().rows.length === 0 && (
+          <div className="text-center py-32">
+            <Search className="mx-auto h-16 w-16 text-neutral-900 mb-6" />
+            <h3 className="text-[12px] font-black uppercase tracking-[0.4em] text-neutral-700">Inventory Empty</h3>
+          </div>
+        )}
       </div>
     </div>
   );

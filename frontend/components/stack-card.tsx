@@ -51,32 +51,32 @@ function getStatusBadge({ stack }: { stack: Stack }) {
   
   if (stack.unhealthyCount > 0) {
     return (
-      <div className="flex items-center gap-1 rounded-full bg-red-500/20 border border-red-500/30 px-2 py-1 text-xs font-medium text-red-400">
+      <div className="flex items-center gap-2 rounded-full bg-red-500/10 border border-red-500/20 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.1)] backdrop-blur-md">
         <AlertCircle className="h-3 w-3" />
-        <span>Unhealthy</span>
+        <span>Action Needed</span>
       </div>
     );
   }
   if (stack.runningCount === total && total > 0) {
     return (
-      <div className="flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2 py-1 text-xs font-medium text-emerald-400">
-        <CheckCircle className="h-3 w-3" />
-        <span>Running</span>
+      <div className="flex items-center gap-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)] backdrop-blur-md">
+        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+        <span>Operational</span>
       </div>
     );
   }
   if (stack.stoppedCount === total && total > 0) {
     return (
-      <div className="flex items-center gap-1 rounded-full bg-neutral-700/40 border border-neutral-600/30 px-2 py-1 text-xs font-medium text-neutral-400">
-        <div className="h-2 w-2 rounded-full bg-neutral-500" />
-        <span>Stopped</span>
+      <div className="flex items-center gap-2 rounded-full bg-white/5 border border-white/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-neutral-500 backdrop-blur-md">
+        <div className="h-1.5 w-1.5 rounded-full bg-neutral-600" />
+        <span>Inactive</span>
       </div>
     );
   }
   return (
-    <div className="flex items-center gap-1 rounded-full bg-yellow-500/20 border border-yellow-500/30 px-2 py-1 text-xs font-medium text-yellow-400">
+    <div className="flex items-center gap-2 rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)] backdrop-blur-md">
       <AlertTriangle className="h-3 w-3" />
-      <span>Partial</span>
+      <span>Degraded</span>
     </div>
   );
 }
@@ -92,150 +92,102 @@ export function StackCard({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  // Calculate aggregated CPU/mem from containers
   const totalCpu = containers.reduce((sum, c) => sum + c.cpu, 0);
   const totalMem = containers.reduce((sum, c) => sum + c.mem, 0);
   const total = stack.runningCount + stack.stoppedCount;
 
   return (
-    <div className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900/60 shadow-sm transition-all hover:bg-neutral-900 hover:border-neutral-700">
-      {/* Mobile Card View */}
+    <div className={`group relative rounded-3xl border transition-all duration-500 overflow-hidden ${isExpanded ? 'border-white/10 bg-white/[0.04] shadow-2xl' : 'border-white/[0.05] bg-white/[0.01] hover:border-white/10 hover:bg-white/[0.03]'}`}>
+      {/* Sidebar Compact View (Used for both Desktop and Mobile as it's robust) */}
       <button
         onClick={onToggle}
-        className="flex flex-col w-full p-4 text-left sm:hidden"
+        className={`flex w-full flex-col gap-4 p-5 text-left transition-all duration-300 ${isExpanded ? 'bg-white/[0.02]' : ''}`}
       >
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center shrink-0">
-              {isExpanded ? (
-                <ChevronDown className="h-4 w-4 text-neutral-400" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-neutral-400" />
-              )}
+        <div className="flex w-full items-start justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className={`mt-0.5 p-1.5 rounded-xl transition-all duration-500 ${isExpanded ? 'bg-cyan-500/20 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.2)]' : 'bg-white/5 text-neutral-600'}`}>
+              <Folder className="h-4 w-4" />
             </div>
-            <span className="font-bold text-neutral-100 text-base">{stack.name}</span>
+            <div className="flex flex-col min-w-0">
+              <span className={`font-black text-sm tracking-tight transition-colors duration-500 truncate ${isExpanded ? 'text-white' : 'text-neutral-300 group-hover:text-white'}`}>
+                {stack.name}
+              </span>
+              <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mt-0.5">
+                {stack.runningCount} / {total} Services
+              </span>
+            </div>
           </div>
-          {getStatusBadge({ stack })}
+          <div className="shrink-0">
+            {getStatusBadge({ stack })}
+          </div>
         </div>
-        <div className="text-xs text-neutral-400 font-medium tracking-tight">
-          Services: <span className="text-emerald-400">{stack.runningCount}</span> / {total}
-          <span className="mx-1.5 text-neutral-700">·</span>
-          CPU {totalCpu.toFixed(1)}%
-          <span className="mx-1.5 text-neutral-700">·</span>
-          Mem {totalMem.toFixed(1)}%
-          <span className="mx-1.5 text-neutral-700">·</span>
-          Issues: {stack.unhealthyCount > 0 ? (
-            <span className="text-red-400">{stack.unhealthyCount}</span>
-          ) : (
-            <span className="text-neutral-500">None</span>
-          )}
+
+        {/* Stats Strip */}
+        <div className="flex items-center gap-4 bg-black/20 rounded-2xl px-4 py-2.5 border border-white/[0.03] shadow-inner">
+          <div className="flex flex-col">
+            <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest leading-none mb-1">CPU</span>
+            <span className={`text-[11px] font-black tabular-nums leading-none ${totalCpu > 0 ? 'text-cyan-400' : 'text-neutral-700'}`}>
+              {totalCpu.toFixed(1)}%
+            </span>
+          </div>
+          <div className="h-4 w-px bg-white/5" />
+          <div className="flex flex-col">
+            <span className="text-[8px] font-black text-neutral-600 uppercase tracking-widest leading-none mb-1">RAM</span>
+            <span className={`text-[11px] font-black tabular-nums leading-none ${totalMem > 0 ? 'text-purple-400' : 'text-neutral-700'}`}>
+              {totalMem.toFixed(1)}%
+            </span>
+          </div>
+          <div className="ml-auto">
+             <div className={`p-1 rounded-lg transition-transform duration-500 ${isExpanded ? 'rotate-180 bg-white/5' : 'bg-transparent'}`}>
+                <ChevronDown className={`h-3.5 w-3.5 transition-colors ${isExpanded ? 'text-cyan-400' : 'text-neutral-700'}`} />
+             </div>
+          </div>
         </div>
       </button>
 
-      {/* Desktop Table Row */}
-      <button
-        onClick={onToggle}
-        className="hidden sm:grid w-full grid-cols-[32px_1.5fr_80px_110px_70px_70px_70px] items-center gap-3 px-3 py-2.5 text-sm"
-      >
-        {/* Expand Icon */}
-        <div className="flex items-center justify-center shrink-0">
-          {isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-neutral-400" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-neutral-400" />
-          )}
-        </div>
-
-        {/* Name */}
-        <div className="text-left">
-          <span className="font-semibold text-neutral-100 truncate">{stack.name}</span>
-        </div>
-
-        {/* Services (running/total) */}
-        <div className="text-right text-neutral-300 tabular-nums">
-          <span className="text-emerald-400">{stack.runningCount}</span>
-          <span className="text-neutral-500 mx-0.5">/</span>
-          <span>{total}</span>
-        </div>
-
-        {/* Status */}
-        <div className="flex justify-center">
-          {getStatusBadge({ stack })}
-        </div>
-
-        {/* CPU */}
-        <div className="text-right text-cyan-400 tabular-nums">
-          {totalCpu.toFixed(1)}%
-        </div>
-
-        {/* Mem */}
-        <div className="text-right text-purple-400 tabular-nums">
-          {totalMem.toFixed(1)}%
-        </div>
-
-        {/* Issues */}
-        <div className="flex items-center justify-center">
-          {stack.unhealthyCount > 0 ? (
-            <div className="flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] font-bold text-red-400">
-              <AlertCircle className="h-3 w-3" />
-              <span>{stack.unhealthyCount}</span>
-            </div>
-          ) : (
-            <span className="text-neutral-600 text-[10px] uppercase font-bold tracking-tighter">None</span>
-          )}
-        </div>
-      </button>
-
-      {/* Expanded Container List */}
+      {/* Expanded Container List - Glass Style */}
       {isExpanded && containers.length > 0 && (
-        <div className="border-t border-neutral-800 bg-neutral-950/40">
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <tbody className="divide-y divide-neutral-800/50">
-                {containers.map((container) => (
-                  <tr key={container.id} className="hover:bg-neutral-800/20">
-                    <td className="px-4 py-2 sm:pl-12">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 w-full">
-                        <div className="flex items-center flex-1 min-w-0">
-                          <span
-                            className={`mr-2.5 shrink-0 inline-block h-2 w-2 rounded-full ${
-                              container.status === "running"
-                                ? "bg-emerald-400 animate-pulse"
-                                : "bg-neutral-600 shadow-inner"
-                            }`}
-                          />
-                          <span className="text-sm text-neutral-200 truncate font-mono">
-                            {container.name}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-4 mt-1 sm:mt-0 pl-4 sm:pl-0">
-                          <span className="text-[10px] uppercase font-bold text-neutral-600 tracking-widest tabular-nums">
-                            {container.id.slice(0, 8)}
-                          </span>
-                          <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-bold text-cyan-400 tabular-nums bg-cyan-400/10 px-1.5 py-0.5 rounded">
-                              {container.cpu.toFixed(1)}%
-                            </span>
-                            <span className="text-[10px] font-bold text-purple-400 tabular-nums bg-purple-400/10 px-1.5 py-0.5 rounded">
-                              {container.mem.toFixed(1)}%
-                            </span>
-                          </div>
-                        </div>
+        <div className="border-t border-white/[0.05] bg-black/20">
+          <table className="min-w-full">
+            <tbody className="divide-y divide-white/[0.03]">
+              {containers.map((container) => (
+                <tr key={container.id} className="hover:bg-white/[0.02] transition-colors group">
+                  <td className="px-5 py-3.5">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span
+                          className={`shrink-0 h-1.5 w-1.5 rounded-full ${
+                            container.status === "running"
+                              ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.4)]"
+                              : "bg-neutral-700"
+                          }`}
+                        />
+                        <span className="text-[11px] font-bold text-neutral-400 truncate tracking-tight group-hover:text-neutral-200 transition-colors">
+                          {container.name}
+                        </span>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="text-[9px] font-black text-cyan-400/60 tabular-nums bg-cyan-400/5 px-2 py-0.5 rounded-full border border-cyan-400/10">
+                          {container.cpu.toFixed(0)}%
+                        </span>
+                        <span className="text-[9px] font-black text-purple-400/60 tabular-nums bg-purple-400/5 px-2 py-0.5 rounded-full border border-purple-400/10">
+                          {container.mem.toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
       {isExpanded && containers.length === 0 && (
-        <div className="border-t border-neutral-800 bg-neutral-950/50 px-6 py-4 flex items-center justify-center">
-          <div className="flex items-center gap-2 rounded-full bg-neutral-800 border border-neutral-700 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
-            <div className="h-1.5 w-1.5 rounded-full bg-neutral-600" />
-            <span>Empty Stack</span>
+        <div className="border-t border-white/[0.05] bg-black/20 px-6 py-6 flex items-center justify-center">
+          <div className="flex items-center gap-3 rounded-2xl bg-white/5 border border-white/[0.05] px-4 py-2 shadow-inner">
+            <div className="h-1.5 w-1.5 rounded-full bg-neutral-700" />
+            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-600">No telemetry data</span>
           </div>
         </div>
       )}
@@ -259,7 +211,11 @@ export function StackList() {
           setStacks(data || []);
         }
       } catch (err) {
-        console.error("Failed to fetch stacks:", err);
+        // Suppress noisy console errors for network failures (backend down)
+        // Only log if it's not a standard fetch failure
+        if (!(err instanceof TypeError && err.message === 'Failed to fetch')) {
+          console.error("API Error (Stacks):", err);
+        }
       } finally {
         setLoading(false);
       }
@@ -284,53 +240,36 @@ export function StackList() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12 text-neutral-500">
-        Loading stacks...
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <div className="h-6 w-6 border-2 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin" />
+        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-neutral-600">Synchronizing...</span>
       </div>
     );
   }
 
   if (stacks.length === 0) {
     return (
-      <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-6 text-center">
-        <AlertCircle className="mx-auto h-10 w-10 text-neutral-600" />
-        <h3 className="mt-3 text-sm font-medium text-neutral-300">No stacks found</h3>
-        <p className="mt-1 text-xs text-neutral-500">
-          Make sure STACKVIEW_STACK_ROOTS is set to scan your compose directories.
+      <div className="rounded-[2rem] border border-white/[0.05] bg-white/[0.02] p-10 text-center backdrop-blur-xl">
+        <AlertCircle className="mx-auto h-12 w-12 text-neutral-800" />
+        <h3 className="mt-4 text-[11px] font-black uppercase tracking-[0.2em] text-neutral-400">Environment Empty</h3>
+        <p className="mt-2 text-[10px] font-bold text-neutral-600 leading-relaxed max-w-[180px] mx-auto">
+          Ensure STACKVIEW_STACK_ROOTS is correctly configured.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2">
-      <div className="overflow-x-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-neutral-800">
-        <div className="min-w-[600px] sm:min-w-0">
-          {/* Column Headers */}
-          <div className="hidden sm:grid grid-cols-[32px_1.5fr_80px_110px_70px_70px_70px] items-center gap-3 px-3 py-2 text-[10px] font-bold text-neutral-500 uppercase tracking-widest border-b border-neutral-800/50 mb-2">
-            <div className="w-4"></div> {/* Expand icon space */}
-            <div>Name</div>
-            <div className="text-right">Services</div>
-            <div className="text-center">Status</div>
-            <div className="text-right">CPU</div>
-            <div className="text-right">Mem</div>
-            <div className="text-center">Issues</div>
-          </div>
-
-          {/* Stack Cards */}
-          <div className="space-y-2">
-            {stacks.map((stack) => (
-              <StackCard
-                key={stack.name}
-                stack={stack}
-                containers={containersByStack[stack.name] || []}
-                isExpanded={expandedStacks.has(stack.name)}
-                onToggle={() => toggleStack(stack.name)}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
+    <div className="space-y-4">
+      {stacks.map((stack) => (
+        <StackCard
+          key={stack.name}
+          stack={stack}
+          containers={containersByStack[stack.name] || []}
+          isExpanded={expandedStacks.has(stack.name)}
+          onToggle={() => toggleStack(stack.name)}
+        />
+      ))}
     </div>
   );
 }

@@ -19,3 +19,12 @@ export const API_BASE = getApiBase();
 export const WS_STATS_URL = getWsBase("/ws/stats");
 export const WS_LOGS_URL = getWsBase("/ws/logs");
 export const WS_EXEC_URL = getWsBase("/ws/exec");
+
+export const checkBackendStatus = async (): Promise<boolean> => {
+  try {
+    const res = await fetch(`${API_BASE}/api/stacks`, { signal: AbortSignal.timeout(2000) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+};

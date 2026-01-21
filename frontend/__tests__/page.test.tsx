@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import "@testing-library/jest-dom";
 import Page from "../app/page";
 
 // This test is a placeholder to verify the testing setup works

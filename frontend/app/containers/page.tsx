@@ -1,17 +1,15 @@
 "use client";
 
-import { ContainerTable } from "../components/container-table";
+import { FlatContainerTable } from "../../components/flat-container-table";
 import { 
   ChevronRight, 
   Home, 
-  Download, 
   Plus, 
   RefreshCcw,
-  Sparkles,
-  Command
+  Box
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { checkBackendStatus } from "../lib/api-config";
+import { checkBackendStatus } from "../../lib/api-config";
 
 function Breadcrumbs() {
   return (
@@ -23,7 +21,7 @@ function Breadcrumbs() {
         <span>StackView</span>
       </div>
       <ChevronRight className="h-3.5 w-3.5 text-surface-300" />
-      <span className="text-surface-900 dark:text-surface-100">Dashboard</span>
+      <span className="text-surface-900 dark:text-surface-100">Containers</span>
     </nav>
   );
 }
@@ -60,7 +58,7 @@ function BackendStatusPill() {
   );
 }
 
-export default function Page() {
+export default function ContainersPage() {
   return (
     <div className="p-6 lg:p-8 w-full flex-1 flex flex-col">
       <header className="mb-12">
@@ -70,14 +68,15 @@ export default function Page() {
             <div className="space-y-1">
               <div className="flex items-center gap-3">
                 <h1 className="text-4xl lg:text-5xl font-black tracking-tight text-surface-950 dark:text-white">
-                  Dashboard
+                  Containers
                 </h1>
-                <div className="hidden sm:flex items-center px-2 py-1 bg-brand-500/10 text-brand-600 text-[10px] font-black uppercase rounded-lg border border-brand-500/20">
-                  v1.0.0
+                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-brand-500/10 text-brand-600 rounded-xl border border-brand-500/20">
+                  <Box className="h-4 w-4" />
+                  <span className="text-[11px] font-black uppercase tracking-wider">All Instances</span>
                 </div>
               </div>
               <p className="text-surface-500 dark:text-surface-400 text-lg font-medium max-w-2xl">
-                Unified control plane for your containerized services and distributed stacks.
+                View and manage all containers directly without stack hierarchy.
               </p>
             </div>
           </div>
@@ -91,7 +90,7 @@ export default function Page() {
             </button>
             <button className="flex items-center gap-2 px-6 py-2.5 bg-brand-600 rounded-xl text-[13px] font-bold text-white hover:bg-brand-700 transition-all shadow-lg shadow-brand-600/25 active:scale-95">
               <Plus className="h-4 w-4" />
-              New Stack
+              New Container
             </button>
           </div>
         </div>
@@ -101,12 +100,9 @@ export default function Page() {
       <div className="flex-1 flex flex-col">
          {/* Table Section */}
         <section className="flex-1 flex flex-col bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded-2xl overflow-hidden shadow-xl shadow-surface-500/5 transition-all">
-          <ContainerTable />
+          <FlatContainerTable />
         </section>
       </div>
     </div>
   );
 }
-
-
-

@@ -1,16 +1,13 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
-  getExpandedRowModel,
   getFilteredRowModel,
   SortingState,
-  ColumnFiltersState,
   useReactTable,
   ExpandedState,
 } from "@tanstack/react-table";
@@ -23,45 +20,35 @@ import {
   Play, 
   Square, 
   RefreshCw, 
-  ChevronRight, 
-  ChevronDown, 
   Search, 
-  Folder, 
   Box, 
-  Cpu, 
-  HardDrive,
-  MoreHorizontal,
-  ExternalLink,
-  Activity,
+  Cpu,
   Terminal,
-  BarChart3
+  BarChart3,
+  Activity,
+  Folder
 } from "lucide-react";
 
-import { ContainerRow, StatPoint, Stack } from "../lib/types";
+import { ContainerRow, StatPoint } from "../lib/types";
 import { ContainerExpandedRow } from "./container-expanded-row";
 import { API_BASE, WS_STATS_URL as WS_URL } from "../lib/api-config";
 
-// --- Types for Unified Table ---
+// --- Types for Flat Table ---
 
-type RowType = "stack" | "container";
-
-interface UnifiedRow {
+interface FlatContainerRow {
   id: string;
-  type: RowType;
   name: string;
   status: string;
   cpu: number;
   mem: number;
   stackName: string;
-  containerId?: string; // Only for containers
-  subRows?: UnifiedRow[];
-  originalData?: any;
+  containerId: string;
+  spark: StatPoint[];
 }
 
 // --- Hooks ---
 
-function useUnifiedData() {
-  const [stacks, setStacks] = useState<Stack[]>([]);
+function useFlatContainerData() {
   const [allContainers, setAllContainers] = useState<ContainerRow[]>([]);
   const [stats, setStats] = useState<Record<string, { cpu: number; mem: number; spark: StatPoint[] }>>({});
   const [loading, setLoading] = useState(true);
@@ -70,17 +57,12 @@ function useUnifiedData() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [stacksRes, containersRes] = await Promise.all([
-          fetch(`${API_BASE}/api/stacks`),
-          fetch(`${API_BASE}/api/containers`)
-        ]);
-        
-        if (stacksRes.ok && containersRes.ok) {
-          setStacks(await stacksRes.json());
-          setAllContainers(await containersRes.json());
+        const res = await fetch(`${API_BASE}/api/containers`);
+        if (res.ok) {
+          setAllContainers(await res.json());
         }
       } catch (err) {
-        console.error("Failed to fetch initial data:", err);
+        console.error("Failed to fetch containers:", err);
       } finally {
         setLoading(false);
       }
@@ -119,46 +101,29 @@ function useUnifiedData() {
     return () => socket.close();
   }, []);
 
-  // Build Hierarchical Rows
+  // Build Flat Rows
   const rows = useMemo(() => {
-    return stacks.map((stack): UnifiedRow => {
-      const stackContainers = allContainers.filter(c => c.stack === stack.name);
-      
-      const containerSubRows = stackContainers.map((c): UnifiedRow => {
-        const liveStats = stats[c.id] || { cpu: 0, mem: 0, spark: [] };
-        return {
-          id: `container-${c.id}`,
-          type: "container",
-          name: c.name.replace("/", ""),
-          status: c.status,
-          cpu: liveStats.cpu,
-          mem: liveStats.mem,
-          stackName: stack.name,
-          containerId: c.id,
-          originalData: { ...c, spark: liveStats.spark }
-        };
-      });
-
+    return allContainers.map((c): FlatContainerRow => {
+      const liveStats = stats[c.id] || { cpu: 0, mem: 0, spark: [] };
       return {
-        id: `stack-${stack.name}`,
-        type: "stack",
-        name: stack.name,
-        status: stack.runningCount > 0 ? "running" : "stopped",
-        cpu: containerSubRows.reduce((acc, c) => acc + c.cpu, 0),
-        mem: containerSubRows.reduce((acc, c) => acc + c.mem, 0),
-        stackName: stack.name,
-        subRows: containerSubRows,
-        originalData: stack
+        id: c.id,
+        name: c.name.replace("/", ""),
+        status: c.status,
+        cpu: liveStats.cpu,
+        mem: liveStats.mem,
+        stackName: c.stack || "standalone",
+        containerId: c.id,
+        spark: liveStats.spark
       };
     });
-  }, [stacks, allContainers, stats]);
+  }, [allContainers, stats]);
 
   return { rows, loading };
 }
 
 // --- Components ---
 
-function StatusBadge({ status, type }: { status: string; type: RowType }) {
+function StatusBadge({ status }: { status: string }) {
   const isRunning = status === "running" || status === "Operational" || status.startsWith("Up");
   
   if (isRunning) {
@@ -185,25 +150,24 @@ function Sparkline({ points }: { points: StatPoint[] }) {
       <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
         <AreaChart data={points}>
           <defs>
-            <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id="colorCpuFlat" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3}/>
               <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
             </linearGradient>
           </defs>
-          <Area type="monotone" dataKey="cpu" stroke="#2563eb" fillOpacity={1} fill="url(#colorCpu)" strokeWidth={2} dot={false} isAnimationActive={false} />
+          <Area type="monotone" dataKey="cpu" stroke="#2563eb" fillOpacity={1} fill="url(#colorCpuFlat)" strokeWidth={2} dot={false} isAnimationActive={false} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
-const EXPANDED_STORAGE_KEY = "stackview-expanded-stacks";
+const EXPANDED_STORAGE_KEY = "stackview-expanded-containers";
 
-export function ContainerTable() {
-  const { rows, loading } = useUnifiedData();
+export function FlatContainerTable() {
+  const { rows, loading } = useFlatContainerData();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [expanded, setExpanded] = useState<ExpandedState>(() => {
-    // Restore expanded state from localStorage on initial load
     if (typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem(EXPANDED_STORAGE_KEY);
@@ -228,68 +192,54 @@ export function ContainerTable() {
     }
   }, [expanded]);
 
-  const columns = useMemo<ColumnDef<UnifiedRow>[]>(
+  const columns = useMemo<ColumnDef<FlatContainerRow>[]>(
     () => [
       {
-        id: "expander",
-        header: "",
-        cell: ({ row }) => {
-          if (row.original.type === "container") return null;
-          return (
-            <button
-              onClick={() => row.toggleExpanded()}
-              className={`p-2 rounded-xl transition-all duration-300 ${row.getIsExpanded() ? "bg-brand-600 text-white shadow-lg shadow-brand-600/20 rotate-90" : "text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800"}`}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          );
-        },
-        size: 50,
-      },
-      {
         accessorKey: "name",
-        header: "Entity Name",
+        header: "Container",
         cell: ({ row }) => (
-          <div className={`flex items-center gap-4 ${row.original.type === "container" ? "pl-8" : ""}`}>
-            {row.original.type === "stack" ? (
-              <div className="p-3 bg-brand-500/10 dark:bg-brand-500/10 rounded-2xl text-brand-600 dark:text-brand-400 border border-brand-500/10">
-                <Folder className="h-5 w-5" />
-              </div>
-            ) : (
-              <div className="p-2.5 bg-surface-100 dark:bg-surface-800 rounded-xl text-surface-400 border border-surface-200 dark:border-surface-700">
-                <Box className="h-4.5 w-4.5" />
-              </div>
-            )}
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 bg-surface-100 dark:bg-surface-800 rounded-xl text-surface-400 border border-surface-200 dark:border-surface-700">
+              <Box className="h-4.5 w-4.5" />
+            </div>
             <div className="flex flex-col gap-0.5">
-              <span className={`text-[15px] font-black tracking-tight ${row.original.type === "stack" ? "text-surface-950 dark:text-white" : "text-surface-700 dark:text-surface-200"}`}>
+              <span className="text-[15px] font-black tracking-tight text-surface-700 dark:text-surface-200">
                 {row.original.name}
               </span>
-              {row.original.type === "container" && (
-                <div className="flex items-center gap-2">
-                   <div className="px-1.5 py-0.5 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded text-[9px] font-bold text-surface-400 tracking-wider">
-                     ID: {row.original.containerId?.slice(0, 12)}
-                   </div>
-                   <div className="h-1 w-1 bg-surface-300 rounded-full" />
-                   <span className="text-[10px] font-bold text-surface-400 uppercase tracking-widest">
-                     IMAGE: {row.original.originalData?.image?.split('/').pop()?.split(':')[0] || 'unknown'}
-                   </span>
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                 <div className="px-1.5 py-0.5 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded text-[9px] font-bold text-surface-400 tracking-wider">
+                   ID: {row.original.containerId?.slice(0, 12)}
+                 </div>
+              </div>
             </div>
           </div>
         ),
       },
       {
+        accessorKey: "stackName",
+        header: "Stack",
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-brand-500/10 rounded-lg text-brand-600 dark:text-brand-400">
+              <Folder className="h-3.5 w-3.5" />
+            </div>
+            <span className="text-sm font-bold text-surface-600 dark:text-surface-300">
+              {row.original.stackName}
+            </span>
+          </div>
+        ),
+      },
+      {
         accessorKey: "status",
-        header: "Health Status",
-        cell: ({ row }) => <StatusBadge status={row.original.status} type={row.original.type} />,
+        header: "Status",
+        cell: ({ row }) => <StatusBadge status={row.original.status} />,
       },
       {
         accessorKey: "cpu",
-        header: "Live Performance",
+        header: "Performance",
         cell: ({ row }) => (
           <div className="flex items-center gap-6">
-            {row.original.type === "container" && <Sparkline points={row.original.originalData.spark} />}
+            <Sparkline points={row.original.spark} />
             <div className="flex gap-6">
               <div className="flex flex-col gap-0.5 min-w-[50px]">
                 <div className="flex items-center gap-1 text-[9px] font-black text-surface-400 uppercase tracking-widest">
@@ -315,15 +265,10 @@ export function ContainerTable() {
       },
       {
         id: "actions",
-        header: "Operations",
+        header: "Actions",
         cell: ({ row }) => {
-          if (row.original.type === "stack") return (
-             <button className="flex items-center gap-2 px-3 py-1.5 bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-xl text-[11px] font-black uppercase tracking-wider text-surface-500 hover:text-brand-600 hover:border-brand-500/30 transition-all">
-               Deploy
-               <ChevronRight className="h-3 w-3" />
-             </button>
-          );
           const isRunning = row.original.status === "running" || row.original.status.startsWith("Up");
+          const isExpanded = expanded === true || (typeof expanded === 'object' && expanded[row.id]);
           return (
             <div className="flex items-center gap-1.5">
               {isRunning ? (
@@ -340,8 +285,13 @@ export function ContainerTable() {
               </button>
               <div className="h-4 w-px bg-surface-200 dark:bg-surface-800 mx-1" />
               <button 
-                onClick={() => row.toggleExpanded()}
-                className={`p-2.5 rounded-xl transition-all duration-300 ${row.getIsExpanded() ? "bg-surface-950 dark:bg-white text-white dark:text-surface-950 shadow-lg" : "text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800"}`}
+                onClick={() => setExpanded(prev => {
+                  if (typeof prev === 'boolean') {
+                    return { [row.id]: true };
+                  }
+                  return { ...prev, [row.id]: !prev[row.id] };
+                })}
+                className={`p-2.5 rounded-xl transition-all duration-300 ${isExpanded ? "bg-surface-950 dark:bg-white text-white dark:text-surface-950 shadow-lg" : "text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800"}`}
               >
                 <Terminal className="h-4 w-4" />
               </button>
@@ -350,20 +300,17 @@ export function ContainerTable() {
         },
       }
     ],
-    []
+    [expanded]
   );
 
   const table = useReactTable({
     data: rows,
     columns,
-    state: { sorting, expanded, globalFilter },
+    state: { sorting, globalFilter },
     onSortingChange: setSorting,
-    onExpandedChange: setExpanded,
     onGlobalFilterChange: setGlobalFilter,
-    getSubRows: (row) => row.subRows,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
   });
 
@@ -385,8 +332,8 @@ export function ContainerTable() {
           <Activity className="h-12 w-12 text-brand-600 animate-spin" />
         </div>
         <div className="space-y-1 text-center">
-            <h4 className="text-lg font-black text-surface-900 dark:text-white uppercase tracking-widest">Warping Interface...</h4>
-            <p className="text-surface-400 text-sm font-medium">Synchronizing Docker socket events and metrics.</p>
+            <h4 className="text-lg font-black text-surface-900 dark:text-white uppercase tracking-widest">Loading Containers...</h4>
+            <p className="text-surface-400 text-sm font-medium">Fetching container data from Docker.</p>
         </div>
       </div>
     );
@@ -399,7 +346,7 @@ export function ContainerTable() {
         <div className="flex items-center bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-800 rounded-[1.25rem] px-5 py-3 w-full max-w-lg focus-within:ring-4 focus-within:ring-brand-500/10 focus-within:border-brand-500/40 transition-all shadow-sm">
           <Search className="h-5 w-5 text-surface-400 mr-4" />
           <input
-            placeholder="Search stacks, services, or container IDs..."
+            placeholder="Search containers, images, or IDs..."
             value={globalFilter ?? ""}
             onChange={(e) => setGlobalFilter(e.target.value)}
             className="bg-transparent border-none outline-none text-sm font-bold text-surface-700 dark:text-surface-200 w-full placeholder:text-surface-400 placeholder:font-medium"
@@ -438,29 +385,32 @@ export function ContainerTable() {
             ))}
           </thead>
           <tbody className="divide-y divide-surface-100 dark:divide-surface-800/50">
-            {table.getRowModel().rows.map((row) => (
-              <React.Fragment key={row.id}>
-                <tr className={`hover:bg-brand-50/30 dark:hover:bg-brand-900/10 transition-colors group relative ${row.original.type === "stack" ? "bg-white dark:bg-surface-900" : "bg-surface-50/10 dark:bg-surface-950/20"}`}>
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-10 py-6 align-middle">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-                {row.getIsExpanded() && row.original.type === "container" && (
-                   <tr key={`${row.id}-details`}>
-                     <td colSpan={columns.length} className="bg-surface-50/50 dark:bg-surface-950/50 p-0 overflow-hidden">
-                        <div className="px-12 py-10 border-l-4 border-brand-600 animate-in slide-in-from-top-4 duration-500">
-                          <ContainerExpandedRow
-                            containerId={row.original.containerId!}
-                            containerName={row.original.name}
-                          />
-                        </div>
-                     </td>
-                   </tr>
-                )}
-              </React.Fragment>
-            ))}
+            {table.getRowModel().rows.map((row) => {
+              const isExpanded = expanded === true || (typeof expanded === 'object' && expanded[row.id]);
+              return (
+                <React.Fragment key={row.id}>
+                  <tr className="hover:bg-brand-50/30 dark:hover:bg-brand-900/10 transition-colors group relative bg-white dark:bg-surface-900">
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id} className="px-10 py-6 align-middle">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                  {isExpanded && (
+                     <tr key={`${row.id}-details`}>
+                       <td colSpan={columns.length} className="bg-surface-50/50 dark:bg-surface-950/50 p-0 overflow-hidden">
+                          <div className="px-12 py-10 border-l-4 border-brand-600 animate-in slide-in-from-top-4 duration-500">
+                            <ContainerExpandedRow
+                              containerId={row.original.containerId}
+                              containerName={row.original.name}
+                            />
+                          </div>
+                       </td>
+                     </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
           </tbody>
         </table>
         
@@ -469,9 +419,9 @@ export function ContainerTable() {
             <div className="p-8 bg-surface-50 dark:bg-surface-950 rounded-[3rem] mb-8 border border-surface-100 dark:border-surface-800 shadow-xl shadow-surface-500/5 group">
               <Search className="h-14 w-14 text-surface-200 dark:text-surface-800 group-hover:scale-110 group-hover:text-brand-500 transition-all duration-500" />
             </div>
-            <h3 className="text-2xl font-black text-surface-950 dark:text-white mb-3">No Services Found</h3>
+            <h3 className="text-2xl font-black text-surface-950 dark:text-white mb-3">No Containers Found</h3>
             <p className="text-surface-400 max-w-[320px] font-medium leading-relaxed">
-              We couldn't find any resources matching your search query or filters. Try adjusting your scope.
+              No containers match your search query or filters. Try adjusting your criteria.
             </p>
           </div>
         )}
@@ -484,7 +434,7 @@ export function ContainerTable() {
              LIVE DATA
            </div>
            <span className="text-[11px] font-black text-surface-400 uppercase tracking-widest">
-             Monitoring {table.getRowModel().rows.length} Active System Entities
+             Monitoring {table.getRowModel().rows.length} Containers
            </span>
         </div>
         <div className="flex gap-3">
@@ -495,5 +445,3 @@ export function ContainerTable() {
     </div>
   );
 }
-
-

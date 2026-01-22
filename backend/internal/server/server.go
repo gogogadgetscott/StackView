@@ -205,14 +205,23 @@ func (s *Server) handleRefreshStacks(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleContainerRouter(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	
-	// Handle /api/containers/tags
-	if path == "/api/containers/tags" {
+	// Normalize path for routing: /api/containers/ -> /api/containers
+	normalizedPath := strings.TrimSuffix(path, "/")
+	
+	// Handle listing: /api/containers or /api/containers/
+	if normalizedPath == "/api/containers" {
+		s.handleGetContainers(w, r)
+		return
+	}
+	
+	// Handle /api/containers/tags (Note: this is now checked against normalizedPath)
+	if normalizedPath == "/api/containers/tags" {
 		s.handleGetAllContainerTags(w, r)
 		return
 	}
 	
 	// Handle /api/containers/{id}/tags
-	if strings.HasSuffix(path, "/tags") {
+	if strings.HasSuffix(normalizedPath, "/tags") {
 		switch r.Method {
 		case http.MethodGet:
 			s.handleGetContainerTags(w, r)
@@ -233,3 +242,55 @@ func (s *Server) handleContainerRouter(w http.ResponseWriter, r *http.Request) {
 	s.handleGetContainer(w, r)
 }
 
+
+// handleGetContainers returns a list of all containers.
+func (s *Server) handleGetContainers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	containers, err := s.stackManager.GetContainers(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Fetch tags from DB
+	rows, err := s.db.QueryContext(r.Context(), "SELECT container_id, tag FROM container_tags")
+	tagsMap := make(map[string][]string)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var id, tag string
+			if err := rows.Scan(&id, &tag); err == nil {
+				tagsMap[id] = append(tagsMap[id], tag)
+			}
+		}
+	}
+
+	// Format for frontend (ContainerRow type)
+	type containerRow struct {
+		ID     string   `json:"id"`
+		Name   string   `json:"name"`
+		Stack  string   `json:"stack"`
+		Status string   `json:"status"`
+		Tags   []string `json:"tags"`
+	}
+
+	result := make([]containerRow, 0, len(containers))
+	for _, c := range containers {
+		stackName := s.stackManager.GetContainerStackName(r.Context(), c.ID)
+		result = append(result, containerRow{
+			ID:     c.ID,
+			Name:   c.Name,
+			Stack:  stackName,
+			Status: c.Status,
+			Tags:   tagsMap[c.ID],
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	json.NewEncoder(w).Encode(result)
+}

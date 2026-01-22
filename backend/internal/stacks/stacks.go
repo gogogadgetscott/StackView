@@ -212,3 +212,38 @@ func (e *StackNotFoundError) Error() string {
 	return "stack not found: " + e.Name
 }
 
+// GetContainers returns detailed container info for all containers across all stacks.
+func (m *Manager) GetContainers(ctx context.Context) ([]ContainerDetail, error) {
+	containers, err := m.dockerClient.ContainerList(ctx, types.ContainerListOptions{All: true})
+	if err != nil {
+		return nil, err
+	}
+
+	var result []ContainerDetail
+	for _, c := range containers {
+		name := ""
+		if len(c.Names) > 0 {
+			name = strings.TrimPrefix(c.Names[0], "/")
+		}
+
+		var health *string
+		if strings.Contains(strings.ToLower(c.Status), "unhealthy") {
+			h := "unhealthy"
+			health = &h
+		} else if strings.Contains(strings.ToLower(c.Status), "healthy") {
+			h := "healthy"
+			health = &h
+		}
+
+		result = append(result, ContainerDetail{
+			ID:      c.ID,
+			Name:    name,
+			Service: c.Labels["com.docker.compose.service"],
+			Status:  c.State,
+			Health:  health,
+		})
+	}
+
+	return result, nil
+}
+

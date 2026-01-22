@@ -8,6 +8,7 @@ import {
   Key,
   ScrollText,
   Loader2,
+  ChevronRight
 } from "lucide-react";
 import { ContainerDetail } from "../lib/types";
 import { API_BASE, WS_LOGS_URL } from "../lib/api-config";
@@ -21,7 +22,7 @@ export function ContainerExpandedRow({
   containerId: string;
   containerName: string;
 }) {
-  const [activeTab, setActiveTab] = useState<Tab | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab | null>("logs");
   const [detail, setDetail] = useState<ContainerDetail | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -43,7 +44,7 @@ export function ContainerExpandedRow({
 
   const handleTabClick = async (tab: Tab) => {
     if (activeTab === tab) {
-      setActiveTab(null);
+      // Allow closing logs if needed, but usually we want at least one open or just stay on it
       return;
     }
     setActiveTab(tab);
@@ -53,135 +54,127 @@ export function ContainerExpandedRow({
   };
 
   const actionButtons = [
-    { id: "logs" as Tab, icon: ScrollText, label: "Logs", color: "text-cyan-400", bg: "bg-cyan-500/10" },
-    { id: "env" as Tab, icon: Key, label: "Env Vars", color: "text-purple-400", bg: "bg-purple-500/10" },
-    { id: "mounts" as Tab, icon: HardDrive, label: "Mounts", color: "text-amber-400", bg: "bg-amber-500/10" },
-    { id: "inspect" as Tab, icon: FileText, label: "Inspect", color: "text-emerald-400", bg: "bg-emerald-500/10" },
+    { id: "logs" as Tab, icon: ScrollText, label: "Logs", color: "text-blue-600", bg: "bg-blue-50" },
+    { id: "env" as Tab, icon: Key, label: "Env Vars", color: "text-slate-600", bg: "bg-slate-100" },
+    { id: "mounts" as Tab, icon: HardDrive, label: "Mounts", color: "text-slate-600", bg: "bg-slate-100" },
+    { id: "inspect" as Tab, icon: FileText, label: "Inspect", color: "text-slate-600", bg: "bg-slate-100" },
   ];
 
   return (
     <div className="space-y-6">
-      {/* Action Tabs - Premium Glass Dock */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-400 mb-2">
+        <div className="h-4 w-1 bg-blue-600 rounded-full" />
+        Detailed Telemetry
+      </div>
+
+      {/* Action Tabs */}
+      <div className="flex flex-wrap gap-2">
         {actionButtons.map((btn) => (
           <button
             key={btn.id}
             onClick={() => handleTabClick(btn.id)}
-            className={`flex items-center gap-3 rounded-2xl border px-5 py-2.5 text-[11px] font-black uppercase tracking-widest transition-all duration-300 backdrop-blur-xl ${
+            className={`flex items-center gap-3 rounded-xl border px-4 py-2 text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${
               activeTab === btn.id
-                ? `border-white/20 ${btn.bg} ${btn.color} shadow-lg shadow-white/5`
-                : "border-white/5 bg-white/[0.02] text-neutral-500 hover:border-white/10 hover:bg-white/[0.05]"
+                ? `border-blue-200 ${btn.bg} ${btn.color} shadow-sm`
+                : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50"
             }`}
           >
-            <btn.icon className={`h-4 w-4 ${activeTab === btn.id ? btn.color : "text-neutral-700"}`} />
+            <btn.icon className={`h-4 w-4 ${activeTab === btn.id ? btn.color : "text-slate-400"}`} />
             {btn.label}
           </button>
         ))}
-        <button
-          className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.01] px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-neutral-800 cursor-not-allowed opacity-40"
-          title="Terminal coming soon"
-          disabled
-        >
-          <Terminal className="h-4 w-4" />
-          Terminal
-        </button>
       </div>
 
-      {/* Tab Content Panel - Glass */}
-      {loading && (
-        <div className="flex items-center gap-4 text-neutral-600 font-black text-[10px] uppercase tracking-[0.2em] py-10 justify-center">
-          <Loader2 className="h-5 w-5 animate-spin text-cyan-500" />
-          Synchronizing State...
-        </div>
-      )}
-
-      {activeTab && !loading && (
-        <div className="rounded-3xl border border-white/[0.05] bg-black/40 overflow-hidden shadow-2xl backdrop-blur-3xl animate-in fade-in slide-in-from-top-2 duration-500">
-           <div className="max-h-[400px] overflow-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20">
-              {activeTab === "logs" && (
-                <div className="p-6 font-mono text-[11px] leading-relaxed text-neutral-400">
-                  <div className="mb-4 flex items-center gap-3 rounded-xl bg-white/5 px-4 py-2 border border-white/5">
-                    <ScrollText className="h-4 w-4 text-cyan-400" />
-                    <span className="font-black uppercase tracking-widest text-neutral-500 text-[9px]">Live Stream Active</span>
+      {/* Tab Content Panel */}
+      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden premium-shadow min-h-[200px]">
+        {loading ? (
+          <div className="flex flex-col items-center gap-4 text-slate-400 font-black text-[10px] uppercase tracking-[0.2em] py-20 justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+            Synchronizing...
+          </div>
+        ) : (
+          <div className="max-h-[400px] overflow-auto scrollbar-thin">
+            {activeTab === "logs" && (
+              <div className="p-6 font-mono text-[11px] leading-relaxed text-slate-600">
+                <div className="mb-4 flex items-center gap-2 text-[9px] font-black uppercase text-blue-600">
+                  <div className="h-1.5 w-1.5 bg-blue-600 rounded-full animate-pulse" />
+                  Live Stream Active
+                </div>
+                {logs.length === 0 ? (
+                  <div className="py-20 text-center text-slate-300 italic">
+                    Waiting for telemetry stream...
                   </div>
-                  {logs.length === 0 ? (
-                    <div className="py-10 text-center opacity-40 italic">
-                      Waiting for telemetry stream...
-                    </div>
-                  ) : (
+                ) : (
                     <div className="space-y-1">
                       {logs.map((line, i) => <div key={i} className="whitespace-pre-wrap">{line}</div>)}
                     </div>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
+            )}
 
-              {activeTab === "env" && detail && (
-                <div className="p-6">
-                  <table className="min-w-full">
-                    <tbody className="divide-y divide-white/[0.03]">
-                      {detail.env.map((e, i) => {
-                        const [key, ...valueParts] = e.split("=");
-                        const value = valueParts.join("=");
-                        return (
-                          <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
-                            <td className="py-3 pr-8 font-mono text-[11px] text-purple-400/80 font-black tracking-tight">{key}</td>
-                            <td className="py-3 font-mono text-[11px] text-neutral-400 break-all">{value || "—"}</td>
-                          </tr>
-                        );
-                      })}
+            {activeTab === "env" && detail && (
+              <div className="p-6">
+                <table className="w-full">
+                  <tbody className="divide-y divide-slate-100">
+                    {detail.env.map((e, i) => {
+                      const [key, ...valueParts] = e.split("=");
+                      const value = valueParts.join("=");
+                      return (
+                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-3 pr-8 font-mono text-[11px] text-blue-700 font-black tracking-tight">{key}</td>
+                          <td className="py-3 font-mono text-[11px] text-slate-500 break-all">{value || "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {activeTab === "mounts" && detail && (
+              <div className="p-6">
+                {detail.mounts.length === 0 ? (
+                  <div className="py-20 text-center text-slate-300 italic text-[11px]">
+                    No persistent storage volumes detected.
+                  </div>
+                ) : (
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                        <th className="pb-4 pr-6 text-left">Internal Path</th>
+                        <th className="pb-4 pr-6 text-left">External Source</th>
+                        <th className="pb-4 text-center">Mode</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {detail.mounts.map((m, i) => (
+                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-3 pr-6 font-mono text-[11px] text-slate-700 font-black">{m.destination}</td>
+                          <td className="py-3 pr-6 font-mono text-[11px] text-slate-400">{m.source}</td>
+                          <td className="py-3 text-center">
+                            <span className="px-2 py-0.5 bg-slate-100 text-[9px] font-black text-slate-500 rounded uppercase">
+                              {m.mode}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
-                </div>
-              )}
+                )}
+              </div>
+            )}
 
-              {activeTab === "mounts" && detail && (
-                <div className="p-6">
-                  {detail.mounts.length === 0 ? (
-                    <div className="py-10 text-center opacity-40 italic text-[11px]">
-                      No persistent storage volumes detected.
-                    </div>
-                  ) : (
-                    <table className="min-w-full">
-                      <thead>
-                        <tr className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-600">
-                          <th className="pb-4 pr-6 text-left">Internal Path</th>
-                          <th className="pb-4 pr-6 text-left">External Source</th>
-                          <th className="pb-4 text-center">Protocol</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/[0.03]">
-                        {detail.mounts.map((m, i) => (
-                          <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
-                            <td className="py-3 pr-6 font-mono text-[11px] text-amber-400/80 font-black">{m.destination}</td>
-                            <td className="py-3 pr-6 font-mono text-[11px] text-neutral-400">{m.source}</td>
-                            <td className="py-3 text-center">
-                              <span className="rounded-lg bg-white/5 border border-white/5 px-2 py-1 text-[9px] font-black text-neutral-600 uppercase">
-                                {m.mode}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              )}
-
-              {activeTab === "inspect" && detail && (
-                <div className="p-6">
-                   <div className="mb-4 flex items-center gap-3 rounded-xl bg-white/5 px-4 py-2 border border-white/5">
-                    <FileText className="h-4 w-4 text-emerald-400" />
-                    <span className="font-black uppercase tracking-widest text-neutral-500 text-[9px]">Raw Engine Manifest</span>
-                  </div>
-                  <pre className="font-mono text-[10px] leading-relaxed text-emerald-500/80 whitespace-pre-wrap bg-black/40 rounded-2xl p-6 border border-white/5 shadow-inner">
-                    {JSON.stringify(detail, null, 2)}
-                  </pre>
-                </div>
-              )}
-           </div>
-        </div>
-      )}
+            {activeTab === "inspect" && detail && (
+              <div className="p-6 bg-slate-950">
+                <pre className="font-mono text-[10px] leading-relaxed text-blue-400 whitespace-pre-wrap">
+                  {JSON.stringify(detail, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+

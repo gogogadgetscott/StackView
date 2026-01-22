@@ -238,6 +238,24 @@ func (s *Server) handleContainerRouter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	// Handle /api/containers/{id}/start
+	if strings.HasSuffix(normalizedPath, "/start") {
+		s.handleContainerStart(w, r)
+		return
+	}
+	
+	// Handle /api/containers/{id}/stop
+	if strings.HasSuffix(normalizedPath, "/stop") {
+		s.handleContainerStop(w, r)
+		return
+	}
+	
+	// Handle /api/containers/{id}/restart
+	if strings.HasSuffix(normalizedPath, "/restart") {
+		s.handleContainerRestart(w, r)
+		return
+	}
+	
 	// Handle /api/containers/{id}
 	s.handleGetContainer(w, r)
 }

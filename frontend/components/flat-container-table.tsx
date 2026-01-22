@@ -183,6 +183,26 @@ export function FlatContainerTable() {
   const [globalFilter, setGlobalFilter] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "running" | "stopped">("all");
 
+  const handleContainerAction = async (containerId: string, action: "start" | "stop" | "restart") => {
+    try {
+      const res = await fetch(`${API_BASE}/api/containers/${containerId}/${action}`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: "Unknown error" }));
+        console.error(`Failed to ${action} container:`, errorData);
+        alert(`Failed to ${action} container`);
+        return;
+      }
+      const result = await res.json();
+      console.log(`Container ${action} successful:`, result);
+      // Optionally refresh data or update UI state
+    } catch (err) {
+      console.error(`Error performing ${action} on container:`, err);
+      alert(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  };
+
   // Persist expanded state to localStorage
   useEffect(() => {
     try {
@@ -272,15 +292,27 @@ export function FlatContainerTable() {
           return (
             <div className="flex items-center gap-1.5">
               {isRunning ? (
-                <button title="Stop" className="p-2.5 hover:bg-rose-50 dark:hover:bg-rose-500/10 text-surface-400 hover:text-rose-500 rounded-xl transition-all border border-transparent hover:border-rose-500/20 shadow-sm">
+                <button 
+                  onClick={() => handleContainerAction(row.original.containerId, "stop")}
+                  title="Stop" 
+                  className="p-2.5 hover:bg-rose-50 dark:hover:bg-rose-500/10 text-surface-400 hover:text-rose-500 rounded-xl transition-all border border-transparent hover:border-rose-500/20 shadow-sm"
+                >
                   <Square className="h-4 w-4 fill-current" />
                 </button>
               ) : (
-                <button title="Start" className="p-2.5 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-surface-400 hover:text-emerald-500 rounded-xl transition-all border border-transparent hover:border-emerald-500/20 shadow-sm">
+                <button 
+                  onClick={() => handleContainerAction(row.original.containerId, "start")}
+                  title="Start" 
+                  className="p-2.5 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-surface-400 hover:text-emerald-500 rounded-xl transition-all border border-transparent hover:border-emerald-500/20 shadow-sm"
+                >
                   <Play className="h-4 w-4 fill-current" />
                 </button>
               )}
-              <button title="Restart" className="p-2.5 hover:bg-brand-50 dark:hover:bg-brand-500/10 text-surface-400 hover:text-brand-500 rounded-xl transition-all border border-transparent hover:border-brand-500/20 shadow-sm">
+              <button 
+                onClick={() => handleContainerAction(row.original.containerId, "restart")}
+                title="Restart" 
+                className="p-2.5 hover:bg-brand-50 dark:hover:bg-brand-500/10 text-surface-400 hover:text-brand-500 rounded-xl transition-all border border-transparent hover:border-brand-500/20 shadow-sm"
+              >
                 <RefreshCw className="h-4 w-4" />
               </button>
               <div className="h-4 w-px bg-surface-200 dark:bg-surface-800 mx-1" />

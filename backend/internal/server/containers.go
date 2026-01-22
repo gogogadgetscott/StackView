@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 )
 
@@ -251,6 +252,123 @@ func (s *Server) handleGetAllContainerTags(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	json.NewEncoder(w).Encode(mapping)
+}
+
+// handleContainerStart starts a container.
+func (s *Server) handleContainerStart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	containerID := extractContainerIDFromControlPath(r.URL.Path, "start")
+	if containerID == "" {
+		http.Error(w, "container ID required", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.dockerClient.ContainerStart(r.Context(), containerID, container.StartOptions{}); err != nil {
+		response := ControlResponse{
+			Success: false,
+			Message: "failed to start container: " + err.Error(),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	response := ControlResponse{
+		Success: true,
+		Message: "container started successfully",
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleContainerStop stops a container.
+func (s *Server) handleContainerStop(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	containerID := extractContainerIDFromControlPath(r.URL.Path, "stop")
+	if containerID == "" {
+		http.Error(w, "container ID required", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.dockerClient.ContainerStop(r.Context(), containerID, container.StopOptions{}); err != nil {
+		response := ControlResponse{
+			Success: false,
+			Message: "failed to stop container: " + err.Error(),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	response := ControlResponse{
+		Success: true,
+		Message: "container stopped successfully",
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleContainerRestart restarts a container.
+func (s *Server) handleContainerRestart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	containerID := extractContainerIDFromControlPath(r.URL.Path, "restart")
+	if containerID == "" {
+		http.Error(w, "container ID required", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.dockerClient.ContainerRestart(r.Context(), containerID, container.StopOptions{}); err != nil {
+		response := ControlResponse{
+			Success: false,
+			Message: "failed to restart container: " + err.Error(),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	response := ControlResponse{
+		Success: true,
+		Message: "container restarted successfully",
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+func extractContainerIDFromControlPath(path, operation string) string {
+	// /api/containers/{id}/{operation}
+	const prefix = "/api/containers/"
+	suffix := "/" + operation
+	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
+		return ""
+	}
+	id := strings.TrimPrefix(path, prefix)
+	id = strings.TrimSuffix(id, suffix)
+	return id
 }
 
 func extractContainerIDFromTagsPath(path string) string {

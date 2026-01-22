@@ -15,6 +15,8 @@ RUN npm run build || npm run next -- build || true
 FROM node:20-bullseye as runner
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=builder /app .
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
 EXPOSE 3000
-CMD ["npm", "run", "dev"]
+CMD ["npm", "start"]

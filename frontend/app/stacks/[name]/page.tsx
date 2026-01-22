@@ -33,6 +33,9 @@ async function fetchStackDetail(name: string): Promise<StackDetail> {
 
 async function executeStackAction(name: string, action: string): Promise<ControlResponse> {
   const res = await fetch(`${API_URL}/api/stacks/${name}/${action}`, { method: "POST" });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+  }
   return res.json();
 }
 

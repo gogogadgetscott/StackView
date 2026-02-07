@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"context"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/gogogadgetscott/stackview/internal/stacks"
 )
 
@@ -128,48 +130,68 @@ func streamContainerLogs(ctx context.Context, cli *client.Client, container stac
 	}
 	defer logs.Close()
 
-	scanner := bufio.NewScanner(logs)
-	for scanner.Scan() {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
+	stdoutReader, stdoutWriter := io.Pipe()
+	stderrReader, stderrWriter := io.Pipe()
 
-		line := scanner.Bytes()
-		if len(line) < 8 {
-			continue
-		}
+	// Demultiplex Docker log stream; handles both TTY and non-TTY containers.
+	go func() {
+		defer stdoutWriter.Close()
+		defer stderrWriter.Close()
+		_, _ = stdcopy.StdCopy(stdoutWriter, stderrWriter, logs)
+	}()
 
-		// Docker log format: 8 bytes header + message
-		// Header: [stream][0][0][0][size1][size2][size3][size4]
-		stream := "stdout"
-		if line[0] == 2 {
-			stream = "stderr"
-		}
+	wg := sync.WaitGroup{}
+	wg.Add(2)
 
-		message := string(line[8:])
-		
-		// Parse timestamp if present
-		timestamp := time.Now().Format(time.RFC3339)
-		if len(message) > 30 && message[10] == 'T' {
-			parts := strings.SplitN(message, " ", 2)
-			if len(parts) == 2 {
-				timestamp = parts[0]
-				message = parts[1]
+	scanStream := func(stream string, reader io.Reader) {
+		defer wg.Done()
+		scanner := bufio.NewScanner(reader)
+		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+		for scanner.Scan() {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			message := scanner.Text()
+			timestamp := time.Now().Format(time.RFC3339)
+			if len(message) > 30 && len(message) > 10 && message[10] == 'T' {
+				parts := strings.SplitN(message, " ", 2)
+				if len(parts) == 2 {
+					timestamp = parts[0]
+					message = parts[1]
+				}
+			}
+
+			entry := LogEntry{
+				Timestamp:   timestamp,
+				Service:     container.Service,
+				ContainerID: container.ID[:12],
+				Message:     strings.TrimRight(message, "\n\r"),
+				Stream:      stream,
+			}
+
+			if err := write(entry); err != nil {
+				return
 			}
 		}
-
-		entry := LogEntry{
-			Timestamp:   timestamp,
-			Service:     container.Service,
-			ContainerID: container.ID[:12],
-			Message:     strings.TrimRight(message, "\n\r"),
-			Stream:      stream,
+		if err := scanner.Err(); err != nil {
+			_ = write(map[string]string{"error": "log stream error: " + err.Error()})
 		}
+	}
 
-		if err := write(entry); err != nil {
-			return
-		}
+	go scanStream("stdout", stdoutReader)
+	go scanStream("stderr", stderrReader)
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-ctx.Done():
+	case <-done:
 	}
 }
